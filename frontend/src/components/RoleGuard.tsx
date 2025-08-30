@@ -1,1 +1,158 @@
-import React, { ReactNode } from 'react';\nimport {\n  Box,\n  Paper,\n  Typography,\n  Alert,\n  CircularProgress,\n  Button,\n} from '@mui/material';\nimport {\n  Lock as LockIcon,\n  Warning as WarningIcon,\n} from '@mui/icons-material';\nimport { useAuthContext } from '../contexts/AuthContext';\nimport { useWalletContext } from '../contexts/WalletContext';\nimport { UserRole } from '../types';\nimport { WalletConnect } from './WalletConnect';\n\ninterface RoleGuardProps {\n  children: ReactNode;\n  allowedRoles?: UserRole[];\n  requiredPermissions?: string[];\n  fallback?: ReactNode;\n  requireWallet?: boolean;\n}\n\nexport const RoleGuard: React.FC<RoleGuardProps> = ({\n  children,\n  allowedRoles,\n  requiredPermissions,\n  fallback,\n  requireWallet = true,\n}) => {\n  const { walletState } = useWalletContext();\n  const { user, isLoading, hasPermission } = useAuthContext();\n\n  // Loading state\n  if (isLoading) {\n    return (\n      <Box display=\"flex\" justifyContent=\"center\" alignItems=\"center\" p={4}>\n        <CircularProgress />\n        <Typography variant=\"body1\" ml={2}>\n          Loading user permissions...\n        </Typography>\n      </Box>\n    );\n  }\n\n  // Wallet connection required but not connected\n  if (requireWallet && !walletState.isConnected) {\n    return (\n      <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500, mx: 'auto', mt: 4 }}>\n        <WarningIcon color=\"warning\" sx={{ fontSize: 48, mb: 2 }} />\n        <Typography variant=\"h6\" gutterBottom>\n          Wallet Connection Required\n        </Typography>\n        <Typography variant=\"body1\" color=\"text.secondary\" mb={3}>\n          Please connect your wallet to access this feature.\n        </Typography>\n        <WalletConnect showCard={false} />\n      </Paper>\n    );\n  }\n\n  // No user found\n  if (requireWallet && !user) {\n    return (\n      <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500, mx: 'auto', mt: 4 }}>\n        <LockIcon color=\"error\" sx={{ fontSize: 48, mb: 2 }} />\n        <Typography variant=\"h6\" gutterBottom>\n          User Not Found\n        </Typography>\n        <Typography variant=\"body1\" color=\"text.secondary\" mb={3}>\n          Unable to determine user role. Please ensure you have the required permissions.\n        </Typography>\n        <Button \n          variant=\"outlined\" \n          onClick={() => window.location.reload()}\n        >\n          Reload Page\n        </Button>\n      </Paper>\n    );\n  }\n\n  // Check role permissions\n  if (allowedRoles && user && !allowedRoles.includes(user.role)) {\n    const unauthorizedContent = (\n      <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500, mx: 'auto', mt: 4 }}>\n        <LockIcon color=\"error\" sx={{ fontSize: 48, mb: 2 }} />\n        <Typography variant=\"h6\" gutterBottom>\n          Access Denied\n        </Typography>\n        <Typography variant=\"body1\" color=\"text.secondary\" mb={2}>\n          You don't have permission to access this resource.\n        </Typography>\n        <Typography variant=\"body2\" color=\"text.secondary\" mb={3}>\n          Required roles: {allowedRoles.map(role => role.charAt(0).toUpperCase() + role.slice(1)).join(', ')}\n        </Typography>\n        <Alert severity=\"info\" sx={{ textAlign: 'left' }}>\n          Your current role: <strong>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</strong>\n        </Alert>\n      </Paper>\n    );\n\n    return fallback ? <>{fallback}</> : unauthorizedContent;\n  }\n\n  // Check specific permissions\n  if (requiredPermissions && user) {\n    const hasAllPermissions = requiredPermissions.every(permission => \n      hasPermission(permission)\n    );\n\n    if (!hasAllPermissions) {\n      const unauthorizedContent = (\n        <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500, mx: 'auto', mt: 4 }}>\n          <LockIcon color=\"error\" sx={{ fontSize: 48, mb: 2 }} />\n          <Typography variant=\"h6\" gutterBottom>\n            Insufficient Permissions\n          </Typography>\n          <Typography variant=\"body1\" color=\"text.secondary\" mb={2}>\n            You don't have the required permissions to access this feature.\n          </Typography>\n          <Typography variant=\"body2\" color=\"text.secondary\" mb={3}>\n            Required permissions: {requiredPermissions.join(', ')}\n          </Typography>\n          <Alert severity=\"info\" sx={{ textAlign: 'left' }}>\n            Your current role: <strong>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</strong>\n          </Alert>\n        </Paper>\n      );\n\n      return fallback ? <>{fallback}</> : unauthorizedContent;\n    }\n  }\n\n  // All checks passed, render children\n  return <>{children}</>;\n};\n\n// Convenience components for specific roles\nexport const EmployeeGuard: React.FC<Omit<RoleGuardProps, 'allowedRoles'>> = (props) => (\n  <RoleGuard {...props} allowedRoles={[UserRole.EMPLOYEE, UserRole.EMPLOYER, UserRole.ADMIN]} />\n);\n\nexport const EmployerGuard: React.FC<Omit<RoleGuardProps, 'allowedRoles'>> = (props) => (\n  <RoleGuard {...props} allowedRoles={[UserRole.EMPLOYER, UserRole.ADMIN]} />\n);\n\nexport const AdminGuard: React.FC<Omit<RoleGuardProps, 'allowedRoles'>> = (props) => (\n  <RoleGuard {...props} allowedRoles={[UserRole.ADMIN]} />\n);\n\nexport const AuditorGuard: React.FC<Omit<RoleGuardProps, 'allowedRoles'>> = (props) => (\n  <RoleGuard {...props} allowedRoles={[UserRole.AUDITOR, UserRole.ADMIN]} />\n);"
+import React from 'react';
+import type { ReactNode } from 'react';
+import {
+  Box,
+  Paper,
+  Typography,
+  Alert,
+  CircularProgress,
+  Button,
+} from '@mui/material';
+import {
+  Lock as LockIcon,
+  Warning as WarningIcon,
+} from '@mui/icons-material';
+import { useAuthContext } from '../contexts/AuthContext';
+import { useWalletContext } from '../contexts/WalletContext';
+import { UserRole } from '../types';
+import { WalletConnect } from './WalletConnect';
+
+interface RoleGuardProps {
+  children: ReactNode;
+  allowedRoles?: UserRole[];
+  requiredPermissions?: string[];
+  fallback?: ReactNode;
+  requireWallet?: boolean;
+}
+
+export const RoleGuard: React.FC<RoleGuardProps> = ({
+  children,
+  allowedRoles,
+  requiredPermissions,
+  fallback,
+  requireWallet = true,
+}) => {
+  const { walletState } = useWalletContext();
+  const { user, isLoading, hasPermission } = useAuthContext();
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" p={4}>
+        <CircularProgress />
+        <Typography variant="body1" ml={2}>
+          Loading user permissions...
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Wallet connection required but not connected
+  if (requireWallet && !walletState.isConnected) {
+    return (
+      <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500, mx: 'auto', mt: 4 }}>
+        <WarningIcon color="warning" sx={{ fontSize: 48, mb: 2 }} />
+        <Typography variant="h6" gutterBottom>
+          Wallet Connection Required
+        </Typography>
+        <Typography variant="body1" color="text.secondary" mb={3}>
+          Please connect your wallet to access this feature.
+        </Typography>
+        <WalletConnect showCard={false} />
+      </Paper>
+    );
+  }
+
+  // No user found
+  if (requireWallet && !user) {
+    return (
+      <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500, mx: 'auto', mt: 4 }}>
+        <LockIcon color="error" sx={{ fontSize: 48, mb: 2 }} />
+        <Typography variant="h6" gutterBottom>
+          User Not Found
+        </Typography>
+        <Typography variant="body1" color="text.secondary" mb={3}>
+          Unable to determine user role. Please ensure you have the required permissions.
+        </Typography>
+        <Button 
+          variant="outlined" 
+          onClick={() => window.location.reload()}
+        >
+          Reload Page
+        </Button>
+      </Paper>
+    );
+  }
+
+  // Check role permissions
+  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    const unauthorizedContent = (
+      <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500, mx: 'auto', mt: 4 }}>
+        <LockIcon color="error" sx={{ fontSize: 48, mb: 2 }} />
+        <Typography variant="h6" gutterBottom>
+          Access Denied
+        </Typography>
+        <Typography variant="body1" color="text.secondary" mb={2}>
+          You don't have permission to access this resource.
+        </Typography>
+        <Typography variant="body2" color="text.secondary" mb={3}>
+          Required roles: {allowedRoles.map(role => role.charAt(0).toUpperCase() + role.slice(1)).join(', ')}
+        </Typography>
+        <Alert severity="info" sx={{ textAlign: 'left' }}>
+          Your current role: <strong>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</strong>
+        </Alert>
+      </Paper>
+    );
+
+    return fallback ? <>{fallback}</> : unauthorizedContent;
+  }
+
+  // Check specific permissions
+  if (requiredPermissions && user) {
+    const hasAllPermissions = requiredPermissions.every(permission => 
+      hasPermission(permission)
+    );
+
+    if (!hasAllPermissions) {
+      const unauthorizedContent = (
+        <Paper sx={{ p: 4, textAlign: 'center', maxWidth: 500, mx: 'auto', mt: 4 }}>
+          <LockIcon color="error" sx={{ fontSize: 48, mb: 2 }} />
+          <Typography variant="h6" gutterBottom>
+            Insufficient Permissions
+          </Typography>
+          <Typography variant="body1" color="text.secondary" mb={2}>
+            You don't have the required permissions to access this feature.
+          </Typography>
+          <Typography variant="body2" color="text.secondary" mb={3}>
+            Required permissions: {requiredPermissions.join(', ')}
+          </Typography>
+          <Alert severity="info" sx={{ textAlign: 'left' }}>
+            Your current role: <strong>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</strong>
+          </Alert>
+        </Paper>
+      );
+
+      return fallback ? <>{fallback}</> : unauthorizedContent;
+    }
+  }
+
+  // All checks passed, render children
+  return <>{children}</>;
+};
+
+// Convenience components for specific roles
+export const EmployeeGuard: React.FC<Omit<RoleGuardProps, 'allowedRoles'>> = (props) => (
+  <RoleGuard {...props} allowedRoles={[UserRole.EMPLOYEE, UserRole.EMPLOYER, UserRole.ADMIN]} />
+);
+
+export const EmployerGuard: React.FC<Omit<RoleGuardProps, 'allowedRoles'>> = (props) => (
+  <RoleGuard {...props} allowedRoles={[UserRole.EMPLOYER, UserRole.ADMIN]} />
+);
+
+export const AdminGuard: React.FC<Omit<RoleGuardProps, 'allowedRoles'>> = (props) => (
+  <RoleGuard {...props} allowedRoles={[UserRole.ADMIN]} />
+);
+
+export const AuditorGuard: React.FC<Omit<RoleGuardProps, 'allowedRoles'>> = (props) => (
+  <RoleGuard {...props} allowedRoles={[UserRole.AUDITOR, UserRole.ADMIN]} />
+);

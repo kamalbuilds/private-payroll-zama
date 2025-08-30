@@ -1,1 +1,252 @@
-import React, { useState, useEffect } from 'react';\nimport {\n  Container,\n  Grid,\n  Paper,\n  Typography,\n  Box,\n  AppBar,\n  Toolbar,\n  IconButton,\n  Menu,\n  MenuItem,\n  Divider,\n  Chip,\n  Card,\n  CardContent,\n  Button,\n} from '@mui/material';\nimport {\n  Menu as MenuIcon,\n  AccountCircle as AccountIcon,\n  Brightness4 as DarkModeIcon,\n  Brightness7 as LightModeIcon,\n  Dashboard as DashboardIcon,\n  ExitToApp as ExitIcon,\n} from '@mui/icons-material';\nimport { Outlet, useNavigate, useLocation } from 'react-router-dom';\nimport { useWalletContext } from '../contexts/WalletContext';\nimport { useAuthContext } from '../contexts/AuthContext';\nimport { useThemeContext } from '../contexts/ThemeContext';\nimport { formatAddress } from '../utils/formatters';\nimport { UserRole } from '../types';\n\nexport const DashboardPage: React.FC = () => {\n  const navigate = useNavigate();\n  const location = useLocation();\n  const { walletState, disconnect } = useWalletContext();\n  const { user, getRoleDisplayName, getRoleColor, getDefaultRoute } = useAuthContext();\n  const { mode, toggleTheme } = useThemeContext();\n  \n  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);\n  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);\n\n  useEffect(() => {\n    // Redirect to appropriate dashboard if on root dashboard route\n    if (location.pathname === '/dashboard' && user) {\n      navigate(getDefaultRoute());\n    }\n  }, [location.pathname, user, navigate, getDefaultRoute]);\n\n  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {\n    setAnchorEl(event.currentTarget);\n  };\n\n  const handleMenuClose = () => {\n    setAnchorEl(null);\n  };\n\n  const handleLogout = () => {\n    disconnect();\n    navigate('/login');\n    handleMenuClose();\n  };\n\n  const getDashboardOptions = () => {\n    if (!user) return [];\n\n    const options = [];\n\n    switch (user.role) {\n      case UserRole.ADMIN:\n        options.push(\n          { path: '/dashboard/admin', label: 'Admin Panel', primary: true },\n          { path: '/dashboard/employer', label: 'Employer View' },\n          { path: '/dashboard/employee', label: 'Employee View' }\n        );\n        break;\n      case UserRole.EMPLOYER:\n        options.push(\n          { path: '/dashboard/employer', label: 'Employer Dashboard', primary: true },\n          { path: '/dashboard/employee', label: 'Employee View' }\n        );\n        break;\n      case UserRole.AUDITOR:\n        options.push(\n          { path: '/dashboard/auditor', label: 'Auditor Dashboard', primary: true }\n        );\n        break;\n      case UserRole.EMPLOYEE:\n      default:\n        options.push(\n          { path: '/dashboard/employee', label: 'Employee Dashboard', primary: true }\n        );\n        break;\n    }\n\n    return options;\n  };\n\n  const currentDashboard = getDashboardOptions().find(option => \n    location.pathname.startsWith(option.path)\n  );\n\n  if (!walletState.isConnected) {\n    return (\n      <Container maxWidth=\"sm\" sx={{ py: 8, textAlign: 'center' }}>\n        <Paper sx={{ p: 4 }}>\n          <Typography variant=\"h5\" gutterBottom>\n            Please connect your wallet\n          </Typography>\n          <Typography variant=\"body1\" color=\"text.secondary\" mb={3}>\n            You need to connect your wallet to access the dashboard.\n          </Typography>\n          <Button \n            variant=\"contained\" \n            onClick={() => navigate('/login')}\n          >\n            Go to Login\n          </Button>\n        </Paper>\n      </Container>\n    );\n  }\n\n  if (!user) {\n    return (\n      <Container maxWidth=\"sm\" sx={{ py: 8, textAlign: 'center' }}>\n        <Paper sx={{ p: 4 }}>\n          <Typography variant=\"h5\" gutterBottom>\n            Loading user information...\n          </Typography>\n        </Paper>\n      </Container>\n    );\n  }\n\n  return (\n    <Box sx={{ flexGrow: 1, minHeight: '100vh', backgroundColor: 'background.default' }}>\n      {/* App Bar */}\n      <AppBar position=\"static\" elevation={1}>\n        <Toolbar>\n          <IconButton\n            edge=\"start\"\n            color=\"inherit\"\n            aria-label=\"menu\"\n            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}\n            sx={{ mr: 2, display: { md: 'none' } }}\n          >\n            <MenuIcon />\n          </IconButton>\n          \n          <DashboardIcon sx={{ mr: 2 }} />\n          \n          <Typography variant=\"h6\" component=\"div\" sx={{ flexGrow: 1 }}>\n            Confidential Payroll - {currentDashboard?.label || 'Dashboard'}\n          </Typography>\n\n          {/* Desktop Navigation */}\n          <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 2 }}>\n            {getDashboardOptions().map((option) => (\n              <Button\n                key={option.path}\n                color=\"inherit\"\n                variant={location.pathname.startsWith(option.path) ? 'outlined' : 'text'}\n                onClick={() => navigate(option.path)}\n                size=\"small\"\n              >\n                {option.label}\n              </Button>\n            ))}\n            \n            <Divider orientation=\"vertical\" flexItem sx={{ mx: 1, backgroundColor: 'rgba(255,255,255,0.2)' }} />\n            \n            <IconButton color=\"inherit\" onClick={toggleTheme}>\n              {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}\n            </IconButton>\n            \n            <Box display=\"flex\" alignItems=\"center\" gap={1}>\n              <Chip\n                label={getRoleDisplayName()}\n                size=\"small\"\n                color={getRoleColor()}\n                variant=\"outlined\"\n                sx={{ \n                  color: 'white',\n                  borderColor: 'rgba(255,255,255,0.3)',\n                }}\n              />\n              <IconButton color=\"inherit\" onClick={handleMenuOpen}>\n                <AccountIcon />\n              </IconButton>\n            </Box>\n          </Box>\n        </Toolbar>\n      </AppBar>\n\n      {/* Mobile Navigation Menu */}\n      {mobileMenuOpen && (\n        <Paper sx={{ display: { md: 'none' } }}>\n          <Box sx={{ p: 2 }}>\n            {getDashboardOptions().map((option) => (\n              <Button\n                key={option.path}\n                fullWidth\n                variant={location.pathname.startsWith(option.path) ? 'contained' : 'text'}\n                onClick={() => {\n                  navigate(option.path);\n                  setMobileMenuOpen(false);\n                }}\n                sx={{ mb: 1 }}\n              >\n                {option.label}\n              </Button>\n            ))}\n          </Box>\n        </Paper>\n      )}\n\n      {/* User Menu */}\n      <Menu\n        anchorEl={anchorEl}\n        open={Boolean(anchorEl)}\n        onClose={handleMenuClose}\n        transformOrigin={{ horizontal: 'right', vertical: 'top' }}\n        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}\n      >\n        <MenuItem onClick={handleMenuClose}>\n          <Box>\n            <Typography variant=\"subtitle2\" fontWeight=\"bold\">\n              {formatAddress(walletState.address!)}\n            </Typography>\n            <Typography variant=\"caption\" color=\"text.secondary\">\n              {getRoleDisplayName()} • Connected\n            </Typography>\n          </Box>\n        </MenuItem>\n        <Divider />\n        <MenuItem onClick={toggleTheme}>\n          {mode === 'dark' ? <LightModeIcon sx={{ mr: 2 }} /> : <DarkModeIcon sx={{ mr: 2 }} />}\n          Toggle {mode === 'dark' ? 'Light' : 'Dark'} Mode\n        </MenuItem>\n        <Divider />\n        <MenuItem onClick={handleLogout}>\n          <ExitIcon sx={{ mr: 2 }} />\n          Disconnect Wallet\n        </MenuItem>\n      </Menu>\n\n      {/* Main Content */}\n      <Container maxWidth=\"xl\" sx={{ py: 3 }}>\n        <Outlet />\n      </Container>\n    </Box>\n  );\n};"
+import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  Paper,
+  Typography,
+  Box,
+  AppBar,
+  Toolbar,
+  IconButton,
+  Menu,
+  MenuItem,
+  Divider,
+  Chip,
+  Button,
+} from '@mui/material';
+import {
+  Menu as MenuIcon,
+  AccountCircle as AccountIcon,
+  Brightness4 as DarkModeIcon,
+  Brightness7 as LightModeIcon,
+  Dashboard as DashboardIcon,
+  ExitToApp as ExitIcon,
+} from '@mui/icons-material';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useWalletContext } from '../contexts/WalletContext';
+import { useAuthContext } from '../contexts/AuthContext';
+import { useThemeContext } from '../contexts/ThemeContext';
+import { formatAddress } from '../utils/formatters';
+import { UserRole } from '../types';
+
+export const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { walletState, disconnect } = useWalletContext();
+  const { user, getRoleDisplayName, getRoleColor, getDefaultRoute } = useAuthContext();
+  const { mode, toggleTheme } = useThemeContext();
+  
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    // Redirect to appropriate dashboard if on root dashboard route
+    if (location.pathname === '/dashboard' && user) {
+      navigate(getDefaultRoute());
+    }
+  }, [location.pathname, user, navigate, getDefaultRoute]);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    disconnect();
+    navigate('/login');
+    handleMenuClose();
+  };
+
+  const getDashboardOptions = () => {
+    if (!user) return [];
+
+    const options = [];
+
+    switch (user.role) {
+      case UserRole.ADMIN:
+        options.push(
+          { path: '/dashboard/admin', label: 'Admin Panel', primary: true },
+          { path: '/dashboard/employer', label: 'Employer View' },
+          { path: '/dashboard/employee', label: 'Employee View' }
+        );
+        break;
+      case UserRole.EMPLOYER:
+        options.push(
+          { path: '/dashboard/employer', label: 'Employer Dashboard', primary: true },
+          { path: '/dashboard/employee', label: 'Employee View' }
+        );
+        break;
+      case UserRole.AUDITOR:
+        options.push(
+          { path: '/dashboard/auditor', label: 'Auditor Dashboard', primary: true }
+        );
+        break;
+      case UserRole.EMPLOYEE:
+      default:
+        options.push(
+          { path: '/dashboard/employee', label: 'Employee Dashboard', primary: true }
+        );
+        break;
+    }
+
+    return options;
+  };
+
+  const currentDashboard = getDashboardOptions().find(option => 
+    location.pathname.startsWith(option.path)
+  );
+
+  if (!walletState.isConnected) {
+    return (
+      <Container maxWidth="sm" sx={{ py: 8, textAlign: 'center' }}>
+        <Paper sx={{ p: 4 }}>
+          <Typography variant="h5" gutterBottom>
+            Please connect your wallet
+          </Typography>
+          <Typography variant="body1" color="text.secondary" mb={3}>
+            You need to connect your wallet to access the dashboard.
+          </Typography>
+          <Button 
+            variant="contained" 
+            onClick={() => navigate('/login')}
+          >
+            Go to Login
+          </Button>
+        </Paper>
+      </Container>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Container maxWidth="sm" sx={{ py: 8, textAlign: 'center' }}>
+        <Paper sx={{ p: 4 }}>
+          <Typography variant="h5" gutterBottom>
+            Loading user information...
+          </Typography>
+        </Paper>
+      </Container>
+    );
+  }
+
+  return (
+    <Box sx={{ flexGrow: 1, minHeight: '100vh', backgroundColor: 'background.default' }}>
+      {/* App Bar */}
+      <AppBar position="static" elevation={1}>
+        <Toolbar>
+          <IconButton
+            edge="start"
+            color="inherit"
+            aria-label="menu"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            sx={{ mr: 2, display: { md: 'none' } }}
+          >
+            <MenuIcon />
+          </IconButton>
+          
+          <DashboardIcon sx={{ mr: 2 }} />
+          
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            Confidential Payroll - {currentDashboard?.label || 'Dashboard'}
+          </Typography>
+
+          {/* Desktop Navigation */}
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 2 }}>
+            {getDashboardOptions().map((option) => (
+              <Button
+                key={option.path}
+                color="inherit"
+                variant={location.pathname.startsWith(option.path) ? 'outlined' : 'text'}
+                onClick={() => navigate(option.path)}
+                size="small"
+              >
+                {option.label}
+              </Button>
+            ))}
+            
+            <Divider orientation="vertical" flexItem sx={{ mx: 1, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+            
+            <IconButton color="inherit" onClick={toggleTheme}>
+              {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
+            
+            <Box display="flex" alignItems="center" gap={1}>
+              <Chip
+                label={getRoleDisplayName()}
+                size="small"
+                color={getRoleColor() as any}
+                variant="outlined"
+                sx={{ 
+                  color: 'white',
+                  borderColor: 'rgba(255,255,255,0.3)',
+                }}
+              />
+              <IconButton color="inherit" onClick={handleMenuOpen}>
+                <AccountIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        </Toolbar>
+      </AppBar>
+
+      {/* Mobile Navigation Menu */}
+      {mobileMenuOpen && (
+        <Paper sx={{ display: { md: 'none' } }}>
+          <Box sx={{ p: 2 }}>
+            {getDashboardOptions().map((option) => (
+              <Button
+                key={option.path}
+                fullWidth
+                variant={location.pathname.startsWith(option.path) ? 'contained' : 'text'}
+                onClick={() => {
+                  navigate(option.path);
+                  setMobileMenuOpen(false);
+                }}
+                sx={{ mb: 1 }}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </Box>
+        </Paper>
+      )}
+
+      {/* User Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={handleMenuClose}>
+          <Box>
+            <Typography variant="subtitle2" fontWeight="bold">
+              {formatAddress(walletState.address!)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {getRoleDisplayName()} • Connected
+            </Typography>
+          </Box>
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={toggleTheme}>
+          {mode === 'dark' ? <LightModeIcon sx={{ mr: 2 }} /> : <DarkModeIcon sx={{ mr: 2 }} />}
+          Toggle {mode === 'dark' ? 'Light' : 'Dark'} Mode
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={handleLogout}>
+          <ExitIcon sx={{ mr: 2 }} />
+          Disconnect Wallet
+        </MenuItem>
+      </Menu>
+
+      {/* Main Content */}
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <Outlet />
+      </Container>
+    </Box>
+  );
+};

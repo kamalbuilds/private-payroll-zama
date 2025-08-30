@@ -1,1 +1,101 @@
-import React from 'react';\nimport {\n  Grid,\n  Paper,\n  Typography,\n  Box,\n  Card,\n  CardContent,\n  Button,\n  Alert,\n} from '@mui/material';\nimport {\n  Assessment as AuditIcon,\n  BarChart as ChartIcon,\n  Description as ReportIcon,\n  Visibility as ViewIcon,\n} from '@mui/icons-material';\nimport { AuditorGuard } from '../components/RoleGuard';\n\nexport const AuditorDashboard: React.FC = () => {\n  return (\n    <AuditorGuard>\n      <Box>\n        {/* Header */}\n        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'info.main', color: 'info.contrastText' }}>\n          <Box display=\"flex\" alignItems=\"center\">\n            <AuditIcon sx={{ fontSize: 40, mr: 2 }} />\n            <Box>\n              <Typography variant=\"h4\" fontWeight=\"bold\">\n                Auditor Dashboard\n              </Typography>\n              <Typography variant=\"subtitle1\" sx={{ opacity: 0.9 }}>\n                Compliance reporting and encrypted analytics\n              </Typography>\n            </Box>\n          </Box>\n        </Paper>\n\n        {/* Auditor Functions */}\n        <Grid container spacing={3}>\n          <Grid item xs={12} md={6}>\n            <Card>\n              <CardContent>\n                <Box display=\"flex\" alignItems=\"center\" mb={2}>\n                  <ReportIcon color=\"primary\" sx={{ mr: 2 }} />\n                  <Typography variant=\"h6\">\n                    Compliance Reports\n                  </Typography>\n                </Box>\n                <Typography variant=\"body2\" color=\"text.secondary\" mb={3}>\n                  Generate regulatory reports without exposing individual data\n                </Typography>\n                <Button variant=\"contained\" fullWidth>\n                  Generate Report\n                </Button>\n              </CardContent>\n            </Card>\n          </Grid>\n\n          <Grid item xs={12} md={6}>\n            <Card>\n              <CardContent>\n                <Box display=\"flex\" alignItems=\"center\" mb={2}>\n                  <ChartIcon color=\"secondary\" sx={{ mr: 2 }} />\n                  <Typography variant=\"h6\">\n                    Aggregated Analytics\n                  </Typography>\n                </Box>\n                <Typography variant=\"body2\" color=\"text.secondary\" mb={3}>\n                  View company-wide statistics with privacy preservation\n                </Typography>\n                <Button variant=\"outlined\" fullWidth>\n                  View Analytics\n                </Button>\n              </CardContent>\n            </Card>\n          </Grid>\n\n          <Grid item xs={12}>\n            <Card>\n              <CardContent>\n                <Box display=\"flex\" alignItems=\"center\" mb={2}>\n                  <ViewIcon color=\"info\" sx={{ mr: 2 }} />\n                  <Typography variant=\"h6\">\n                    Audit Trail\n                  </Typography>\n                </Box>\n                <Typography variant=\"body2\" color=\"text.secondary\" mb={3}>\n                  Review system activity and transaction history\n                </Typography>\n                <Alert severity=\"info\">\n                  Auditor dashboard functionality will be implemented in the next phase\n                </Alert>\n              </CardContent>\n            </Card>\n          </Grid>\n        </Grid>\n      </Box>\n    </AuditorGuard>\n  );\n};"
+import React from 'react';
+import {
+  Paper,
+  Typography,
+  Box,
+  Card,
+  CardContent,
+  Button,
+  Alert,
+  Grid,
+} from '@mui/material';
+import {
+  Assessment as AuditIcon,
+  BarChart as ChartIcon,
+  Description as ReportIcon,
+  Visibility as ViewIcon,
+} from '@mui/icons-material';
+import { AuditorGuard } from '../components/RoleGuard';
+
+export const AuditorDashboard: React.FC = () => {
+  return (
+    <AuditorGuard>
+      <Box>
+        {/* Header */}
+        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'info.main', color: 'info.contrastText' }}>
+          <Box display="flex" alignItems="center">
+            <AuditIcon sx={{ fontSize: 40, mr: 2 }} />
+            <Box>
+              <Typography variant="h4" fontWeight="bold">
+                Auditor Dashboard
+              </Typography>
+              <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+                Compliance reporting and encrypted analytics
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* Auditor Functions */}
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card>
+              <CardContent>
+                <Box display="flex" alignItems="center" mb={2}>
+                  <ReportIcon color="primary" sx={{ mr: 2 }} />
+                  <Typography variant="h6">
+                    Compliance Reports
+                  </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" mb={3}>
+                  Generate regulatory reports without exposing individual data
+                </Typography>
+                <Button variant="contained" fullWidth>
+                  Generate Report
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card>
+              <CardContent>
+                <Box display="flex" alignItems="center" mb={2}>
+                  <ChartIcon color="secondary" sx={{ mr: 2 }} />
+                  <Typography variant="h6">
+                    Aggregated Analytics
+                  </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" mb={3}>
+                  View company-wide statistics with privacy preservation
+                </Typography>
+                <Button variant="outlined" fullWidth>
+                  View Analytics
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 12 }}>
+            <Card>
+              <CardContent>
+                <Box display="flex" alignItems="center" mb={2}>
+                  <ViewIcon color="info" sx={{ mr: 2 }} />
+                  <Typography variant="h6">
+                    Audit Trail
+                  </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" mb={3}>
+                  Review system activity and transaction history
+                </Typography>
+                <Alert severity="info">
+                  Auditor dashboard functionality will be implemented in the next phase
+                </Alert>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Box>
+    </AuditorGuard>
+  );
+};

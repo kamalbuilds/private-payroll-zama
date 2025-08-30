@@ -1,1 +1,236 @@
-import { useState, useEffect, useCallback } from 'react';\nimport { ethers } from 'ethers';\nimport { WalletState } from '../types';\nimport { SUPPORTED_CHAINS } from '../utils/constants';\nimport toast from 'react-hot-toast';\n\nexport const useWallet = () => {\n  const [walletState, setWalletState] = useState<WalletState>({\n    isConnected: false,\n    address: null,\n    chainId: null,\n    isConnecting: false,\n    error: null,\n  });\n\n  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);\n  const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null);\n\n  // Check if wallet is already connected\n  useEffect(() => {\n    checkConnection();\n  }, []);\n\n  // Listen to account and network changes\n  useEffect(() => {\n    if (typeof window !== 'undefined' && window.ethereum) {\n      const handleAccountsChanged = (accounts: string[]) => {\n        if (accounts.length === 0) {\n          disconnect();\n        } else {\n          setWalletState(prev => ({\n            ...prev,\n            address: accounts[0],\n            isConnected: true,\n          }));\n        }\n      };\n\n      const handleChainChanged = (chainId: string) => {\n        const newChainId = parseInt(chainId, 16);\n        setWalletState(prev => ({\n          ...prev,\n          chainId: newChainId,\n        }));\n        \n        if (!isChainSupported(newChainId)) {\n          toast.error('Please switch to a supported network');\n        }\n      };\n\n      window.ethereum.on('accountsChanged', handleAccountsChanged);\n      window.ethereum.on('chainChanged', handleChainChanged);\n\n      return () => {\n        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);\n        window.ethereum.removeListener('chainChanged', handleChainChanged);\n      };\n    }\n  }, []);\n\n  const checkConnection = async () => {\n    try {\n      if (typeof window !== 'undefined' && window.ethereum) {\n        const provider = new ethers.BrowserProvider(window.ethereum);\n        const accounts = await provider.listAccounts();\n        \n        if (accounts.length > 0) {\n          const network = await provider.getNetwork();\n          const signer = await provider.getSigner();\n          \n          setProvider(provider);\n          setSigner(signer);\n          setWalletState({\n            isConnected: true,\n            address: accounts[0].address,\n            chainId: Number(network.chainId),\n            isConnecting: false,\n            error: null,\n          });\n        }\n      }\n    } catch (error) {\n      console.error('Failed to check wallet connection:', error);\n    }\n  };\n\n  const connect = useCallback(async () => {\n    if (typeof window === 'undefined' || !window.ethereum) {\n      const error = 'MetaMask not detected. Please install MetaMask.';\n      setWalletState(prev => ({ ...prev, error }));\n      toast.error(error);\n      return;\n    }\n\n    setWalletState(prev => ({ ...prev, isConnecting: true, error: null }));\n\n    try {\n      // Request account access\n      await window.ethereum.request({ method: 'eth_requestAccounts' });\n      \n      const provider = new ethers.BrowserProvider(window.ethereum);\n      const network = await provider.getNetwork();\n      const signer = await provider.getSigner();\n      const address = await signer.getAddress();\n\n      setProvider(provider);\n      setSigner(signer);\n      \n      setWalletState({\n        isConnected: true,\n        address,\n        chainId: Number(network.chainId),\n        isConnecting: false,\n        error: null,\n      });\n\n      if (!isChainSupported(Number(network.chainId))) {\n        toast.error('Please switch to a supported network');\n      } else {\n        toast.success('Wallet connected successfully!');\n      }\n    } catch (error: any) {\n      const errorMessage = error.message || 'Failed to connect wallet';\n      setWalletState(prev => ({\n        ...prev,\n        isConnecting: false,\n        error: errorMessage,\n      }));\n      toast.error(errorMessage);\n    }\n  }, []);\n\n  const disconnect = useCallback(() => {\n    setProvider(null);\n    setSigner(null);\n    setWalletState({\n      isConnected: false,\n      address: null,\n      chainId: null,\n      isConnecting: false,\n      error: null,\n    });\n    toast.success('Wallet disconnected');\n  }, []);\n\n  const switchNetwork = useCallback(async (chainId: number) => {\n    if (!window.ethereum) return;\n\n    try {\n      await window.ethereum.request({\n        method: 'wallet_switchEthereumChain',\n        params: [{ chainId: `0x${chainId.toString(16)}` }],\n      });\n    } catch (error: any) {\n      // If the network is not added to the user's wallet\n      if (error.code === 4902) {\n        try {\n          await addNetwork(chainId);\n        } catch (addError) {\n          toast.error('Failed to add network');\n        }\n      } else {\n        toast.error('Failed to switch network');\n      }\n    }\n  }, []);\n\n  const addNetwork = async (chainId: number) => {\n    if (!window.ethereum) return;\n\n    const networkConfig = getNetworkConfig(chainId);\n    if (!networkConfig) {\n      toast.error('Network configuration not found');\n      return;\n    }\n\n    try {\n      await window.ethereum.request({\n        method: 'wallet_addEthereumChain',\n        params: [networkConfig],\n      });\n    } catch (error) {\n      throw error;\n    }\n  };\n\n  const isChainSupported = (chainId: number): boolean => {\n    return Object.values(SUPPORTED_CHAINS).includes(chainId);\n  };\n\n  const getNetworkConfig = (chainId: number) => {\n    const configs: Record<number, any> = {\n      [SUPPORTED_CHAINS.ZAMA_DEVNET]: {\n        chainId: `0x${SUPPORTED_CHAINS.ZAMA_DEVNET.toString(16)}`,\n        chainName: 'Zama Devnet',\n        nativeCurrency: {\n          name: 'ZAMA',\n          symbol: 'ZAMA',\n          decimals: 18,\n        },\n        rpcUrls: ['https://devnet.zama.ai'],\n        blockExplorerUrls: ['https://explorer.devnet.zama.ai'],\n      },\n      [SUPPORTED_CHAINS.ZAMA_TESTNET]: {\n        chainId: `0x${SUPPORTED_CHAINS.ZAMA_TESTNET.toString(16)}`,\n        chainName: 'Zama Testnet',\n        nativeCurrency: {\n          name: 'ZAMA',\n          symbol: 'ZAMA',\n          decimals: 18,\n        },\n        rpcUrls: ['https://testnet.zama.ai'],\n        blockExplorerUrls: ['https://explorer.testnet.zama.ai'],\n      },\n    };\n\n    return configs[chainId];\n  };\n\n  return {\n    ...walletState,\n    provider,\n    signer,\n    connect,\n    disconnect,\n    switchNetwork,\n    isChainSupported: walletState.chainId ? isChainSupported(walletState.chainId) : false,\n  };\n};\n\n// Extend window interface for TypeScript\ndeclare global {\n  interface Window {\n    ethereum?: any;\n  }\n}
+import { useState, useEffect, useCallback } from 'react';
+import { ethers } from 'ethers';
+import type { WalletState } from '../types';
+import { SUPPORTED_CHAINS } from '../utils/constants';
+import toast from 'react-hot-toast';
+
+export const useWallet = () => {
+  const [walletState, setWalletState] = useState<WalletState>({
+    isConnected: false,
+    address: null,
+    chainId: null,
+    isConnecting: false,
+    error: null,
+  });
+
+  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
+  const [signer, setSigner] = useState<ethers.JsonRpcSigner | null>(null);
+
+  // Check if wallet is already connected
+  useEffect(() => {
+    checkConnection();
+  }, []);
+
+  // Listen to account and network changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.ethereum) {
+      const handleAccountsChanged = (accounts: string[]) => {
+        if (accounts.length === 0) {
+          disconnect();
+        } else {
+          setWalletState(prev => ({
+            ...prev,
+            address: accounts[0],
+            isConnected: true,
+          }));
+        }
+      };
+
+      const handleChainChanged = (chainId: string) => {
+        const newChainId = parseInt(chainId, 16);
+        setWalletState(prev => ({
+          ...prev,
+          chainId: newChainId,
+        }));
+        
+        if (!isChainSupported(newChainId)) {
+          toast.error('Please switch to a supported network');
+        }
+      };
+
+      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      window.ethereum.on('chainChanged', handleChainChanged);
+
+      return () => {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        window.ethereum.removeListener('chainChanged', handleChainChanged);
+      };
+    }
+  }, []);
+
+  const checkConnection = async () => {
+    try {
+      if (typeof window !== 'undefined' && window.ethereum) {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await provider.listAccounts();
+        
+        if (accounts.length > 0) {
+          const network = await provider.getNetwork();
+          const signer = await provider.getSigner();
+          
+          setProvider(provider);
+          setSigner(signer);
+          setWalletState({
+            isConnected: true,
+            address: accounts[0].address,
+            chainId: Number(network.chainId),
+            isConnecting: false,
+            error: null,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check wallet connection:', error);
+    }
+  };
+
+  const connect = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.ethereum) {
+      const error = 'MetaMask not detected. Please install MetaMask.';
+      setWalletState(prev => ({ ...prev, error }));
+      toast.error(error);
+      return;
+    }
+
+    setWalletState(prev => ({ ...prev, isConnecting: true, error: null }));
+
+    try {
+      // Request account access
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const network = await provider.getNetwork();
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+
+      setProvider(provider);
+      setSigner(signer);
+      
+      setWalletState({
+        isConnected: true,
+        address,
+        chainId: Number(network.chainId),
+        isConnecting: false,
+        error: null,
+      });
+
+      if (!isChainSupported(Number(network.chainId))) {
+        toast.error('Please switch to a supported network');
+      } else {
+        toast.success('Wallet connected successfully!');
+      }
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to connect wallet';
+      setWalletState(prev => ({
+        ...prev,
+        isConnecting: false,
+        error: errorMessage,
+      }));
+      toast.error(errorMessage);
+    }
+  }, []);
+
+  const disconnect = useCallback(() => {
+    setProvider(null);
+    setSigner(null);
+    setWalletState({
+      isConnected: false,
+      address: null,
+      chainId: null,
+      isConnecting: false,
+      error: null,
+    });
+    toast.success('Wallet disconnected');
+  }, []);
+
+  const switchNetwork = useCallback(async (chainId: number) => {
+    if (!window.ethereum) return;
+
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: `0x${chainId.toString(16)}` }],
+      });
+    } catch (error: any) {
+      // If the network is not added to the user's wallet
+      if (error.code === 4902) {
+        try {
+          await addNetwork(chainId);
+        } catch (addError) {
+          toast.error('Failed to add network');
+        }
+      } else {
+        toast.error('Failed to switch network');
+      }
+    }
+  }, []);
+
+  const addNetwork = async (chainId: number) => {
+    if (!window.ethereum) return;
+
+    const networkConfig = getNetworkConfig(chainId);
+    if (!networkConfig) {
+      toast.error('Network configuration not found');
+      return;
+    }
+
+    try {
+      await window.ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [networkConfig],
+      });
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const isChainSupported = (chainId: number): boolean => {
+    return Object.values(SUPPORTED_CHAINS).includes(chainId);
+  };
+
+  const getNetworkConfig = (chainId: number) => {
+    const configs: Record<number, any> = {
+      [SUPPORTED_CHAINS.ZAMA_DEVNET]: {
+        chainId: `0x${SUPPORTED_CHAINS.ZAMA_DEVNET.toString(16)}`,
+        chainName: 'Zama Devnet',
+        nativeCurrency: {
+          name: 'ZAMA',
+          symbol: 'ZAMA',
+          decimals: 18,
+        },
+        rpcUrls: ['https://devnet.zama.ai'],
+        blockExplorerUrls: ['https://explorer.devnet.zama.ai'],
+      },
+      [SUPPORTED_CHAINS.ZAMA_TESTNET]: {
+        chainId: `0x${SUPPORTED_CHAINS.ZAMA_TESTNET.toString(16)}`,
+        chainName: 'Zama Testnet',
+        nativeCurrency: {
+          name: 'ZAMA',
+          symbol: 'ZAMA',
+          decimals: 18,
+        },
+        rpcUrls: ['https://testnet.zama.ai'],
+        blockExplorerUrls: ['https://explorer.testnet.zama.ai'],
+      },
+    };
+
+    return configs[chainId];
+  };
+
+  return {
+    ...walletState,
+    provider,
+    signer,
+    connect,
+    disconnect,
+    switchNetwork,
+    isChainSupported: walletState.chainId ? isChainSupported(walletState.chainId) : false,
+  };
+};
+
+// Extend window interface for TypeScript
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}

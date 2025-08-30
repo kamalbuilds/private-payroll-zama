@@ -1,1 +1,144 @@
-import React from 'react';\nimport {\n  Button,\n  Card,\n  CardContent,\n  Typography,\n  Box,\n  CircularProgress,\n  Alert,\n  Chip,\n  IconButton,\n  Tooltip,\n} from '@mui/material';\nimport {\n  AccountBalanceWallet as WalletIcon,\n  Logout as LogoutIcon,\n  Warning as WarningIcon,\n} from '@mui/icons-material';\nimport { useWalletContext } from '../contexts/WalletContext';\nimport { formatAddress } from '../utils/formatters';\nimport { SUPPORTED_CHAINS } from '../utils/constants';\n\ninterface WalletConnectProps {\n  showCard?: boolean;\n  size?: 'small' | 'medium' | 'large';\n}\n\nexport const WalletConnect: React.FC<WalletConnectProps> = ({ \n  showCard = true, \n  size = 'medium' \n}) => {\n  const {\n    walletState,\n    connect,\n    disconnect,\n    switchNetwork,\n    isChainSupported,\n  } = useWalletContext();\n\n  const getNetworkName = (chainId: number): string => {\n    switch (chainId) {\n      case SUPPORTED_CHAINS.ZAMA_DEVNET:\n        return 'Zama Devnet';\n      case SUPPORTED_CHAINS.ZAMA_TESTNET:\n        return 'Zama Testnet';\n      case SUPPORTED_CHAINS.LOCAL:\n        return 'Local Network';\n      default:\n        return `Chain ${chainId}`;\n    }\n  };\n\n  const handleNetworkSwitch = () => {\n    if (walletState.chainId && !isChainSupported) {\n      switchNetwork(SUPPORTED_CHAINS.ZAMA_DEVNET);\n    }\n  };\n\n  const ConnectedWallet = () => (\n    <Box display=\"flex\" alignItems=\"center\" gap={1}>\n      <WalletIcon color=\"primary\" />\n      <Box>\n        <Typography variant={size === 'small' ? 'body2' : 'body1'} fontWeight={500}>\n          {formatAddress(walletState.address!)}\n        </Typography>\n        {walletState.chainId && (\n          <Box display=\"flex\" alignItems=\"center\" gap={1} mt={0.5}>\n            <Chip\n              label={getNetworkName(walletState.chainId)}\n              size=\"small\"\n              color={isChainSupported ? 'success' : 'warning'}\n              variant=\"outlined\"\n            />\n            {!isChainSupported && (\n              <Tooltip title=\"Switch to supported network\">\n                <IconButton size=\"small\" onClick={handleNetworkSwitch}>\n                  <WarningIcon color=\"warning\" fontSize=\"small\" />\n                </IconButton>\n              </Tooltip>\n            )}\n          </Box>\n        )}\n      </Box>\n      <Tooltip title=\"Disconnect wallet\">\n        <IconButton onClick={disconnect} size=\"small\">\n          <LogoutIcon />\n        </IconButton>\n      </Tooltip>\n    </Box>\n  );\n\n  const ConnectButton = () => (\n    <Button\n      variant=\"contained\"\n      startIcon={walletState.isConnecting ? <CircularProgress size={16} /> : <WalletIcon />}\n      onClick={connect}\n      disabled={walletState.isConnecting}\n      size={size}\n    >\n      {walletState.isConnecting ? 'Connecting...' : 'Connect Wallet'}\n    </Button>\n  );\n\n  const content = (\n    <Box>\n      {walletState.error && (\n        <Alert severity=\"error\" sx={{ mb: 2 }}>\n          {walletState.error}\n        </Alert>\n      )}\n      \n      {!isChainSupported && walletState.isConnected && (\n        <Alert \n          severity=\"warning\" \n          sx={{ mb: 2 }}\n          action={\n            <Button size=\"small\" onClick={handleNetworkSwitch}>\n              Switch Network\n            </Button>\n          }\n        >\n          Please connect to a supported network to use the application.\n        </Alert>\n      )}\n\n      {walletState.isConnected ? <ConnectedWallet /> : <ConnectButton />}\n    </Box>\n  );\n\n  if (!showCard) {\n    return content;\n  }\n\n  return (\n    <Card sx={{ maxWidth: 400, mx: 'auto' }}>\n      <CardContent>\n        <Typography variant=\"h6\" gutterBottom align=\"center\">\n          Wallet Connection\n        </Typography>\n        {content}\n      </CardContent>\n    </Card>\n  );\n};"
+import React from 'react';
+import {
+  Button,
+  Card,
+  CardContent,
+  Typography,
+  Box,
+  CircularProgress,
+  Alert,
+  Chip,
+  IconButton,
+  Tooltip,
+} from '@mui/material';
+import {
+  AccountBalanceWallet as WalletIcon,
+  Logout as LogoutIcon,
+  Warning as WarningIcon,
+} from '@mui/icons-material';
+import { useWalletContext } from '../contexts/WalletContext';
+import { formatAddress } from '../utils/formatters';
+import { SUPPORTED_CHAINS } from '../utils/constants';
+
+interface WalletConnectProps {
+  showCard?: boolean;
+  size?: 'small' | 'medium' | 'large';
+}
+
+export const WalletConnect: React.FC<WalletConnectProps> = ({ 
+  showCard = true, 
+  size = 'medium' 
+}) => {
+  const {
+    walletState,
+    connect,
+    disconnect,
+    switchNetwork,
+    isChainSupported,
+  } = useWalletContext();
+
+  const getNetworkName = (chainId: number): string => {
+    switch (chainId) {
+      case SUPPORTED_CHAINS.ZAMA_DEVNET:
+        return 'Zama Devnet';
+      case SUPPORTED_CHAINS.ZAMA_TESTNET:
+        return 'Zama Testnet';
+      case SUPPORTED_CHAINS.LOCAL:
+        return 'Local Network';
+      default:
+        return `Chain ${chainId}`;
+    }
+  };
+
+  const handleNetworkSwitch = () => {
+    if (walletState.chainId && !isChainSupported) {
+      switchNetwork(SUPPORTED_CHAINS.ZAMA_DEVNET);
+    }
+  };
+
+  const ConnectedWallet = () => (
+    <Box display="flex" alignItems="center" gap={1}>
+      <WalletIcon color="primary" />
+      <Box>
+        <Typography variant={size === 'small' ? 'body2' : 'body1'} fontWeight={500}>
+          {formatAddress(walletState.address!)}
+        </Typography>
+        {walletState.chainId && (
+          <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+            <Chip
+              label={getNetworkName(walletState.chainId)}
+              size="small"
+              color={isChainSupported ? 'success' : 'warning'}
+              variant="outlined"
+            />
+            {!isChainSupported && (
+              <Tooltip title="Switch to supported network">
+                <IconButton size="small" onClick={handleNetworkSwitch}>
+                  <WarningIcon color="warning" fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
+        )}
+      </Box>
+      <Tooltip title="Disconnect wallet">
+        <IconButton onClick={disconnect} size="small">
+          <LogoutIcon />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+
+  const ConnectButton = () => (
+    <Button
+      variant="contained"
+      startIcon={walletState.isConnecting ? <CircularProgress size={16} /> : <WalletIcon />}
+      onClick={connect}
+      disabled={walletState.isConnecting}
+      size={size}
+    >
+      {walletState.isConnecting ? 'Connecting...' : 'Connect Wallet'}
+    </Button>
+  );
+
+  const content = (
+    <Box>
+      {walletState.error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {walletState.error}
+        </Alert>
+      )}
+      
+      {!isChainSupported && walletState.isConnected && (
+        <Alert 
+          severity="warning" 
+          sx={{ mb: 2 }}
+          action={
+            <Button size="small" onClick={handleNetworkSwitch}>
+              Switch Network
+            </Button>
+          }
+        >
+          Please connect to a supported network to use the application.
+        </Alert>
+      )}
+
+      {walletState.isConnected ? <ConnectedWallet /> : <ConnectButton />}
+    </Box>
+  );
+
+  if (!showCard) {
+    return content;
+  }
+
+  return (
+    <Card sx={{ maxWidth: 400, mx: 'auto' }}>
+      <CardContent>
+        <Typography variant="h6" gutterBottom align="center">
+          Wallet Connection
+        </Typography>
+        {content}
+      </CardContent>
+    </Card>
+  );
+};

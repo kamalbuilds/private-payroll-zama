@@ -1,1 +1,83 @@
-import React, { createContext, useContext, ReactNode } from 'react';\nimport { useRole } from '../hooks/useRole';\nimport { useWalletContext } from './WalletContext';\nimport { User, UserRole } from '../types';\n\ninterface AuthContextType {\n  user: User | null;\n  isLoading: boolean;\n  error: string | null;\n  // Role checks\n  hasPermission: (permission: string) => boolean;\n  isEmployee: () => boolean;\n  isEmployer: () => boolean;\n  isAdmin: () => boolean;\n  isAuditor: () => boolean;\n  // Permission checks\n  canViewOwnSalary: () => boolean;\n  canViewOwnHistory: () => boolean;\n  canViewCompanyData: () => boolean;\n  canManageEmployees: () => boolean;\n  canProcessPayroll: () => boolean;\n  canGenerateReports: () => boolean;\n  // Utility functions\n  getRoleDisplayName: (role?: UserRole) => string;\n  getRoleColor: (role?: UserRole) => string;\n  getAvailableRoles: () => UserRole[];\n  getAccessibleRoutes: () => string[];\n  getDefaultRoute: () => string;\n  refreshRole: () => void;\n}\n\nconst AuthContext = createContext<AuthContextType | undefined>(undefined);\n\ninterface AuthProviderProps {\n  children: ReactNode;\n}\n\nexport const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {\n  const { provider, walletState } = useWalletContext();\n  const roleHook = useRole(provider, walletState.address || undefined);\n\n  const value: AuthContextType = {\n    user: roleHook.user,\n    isLoading: roleHook.isLoading,\n    error: roleHook.error,\n    // Role checks\n    hasPermission: roleHook.hasPermission,\n    isEmployee: roleHook.isEmployee,\n    isEmployer: roleHook.isEmployer,\n    isAdmin: roleHook.isAdmin,\n    isAuditor: roleHook.isAuditor,\n    // Permission checks\n    canViewOwnSalary: roleHook.canViewOwnSalary,\n    canViewOwnHistory: roleHook.canViewOwnHistory,\n    canViewCompanyData: roleHook.canViewCompanyData,\n    canManageEmployees: roleHook.canManageEmployees,\n    canProcessPayroll: roleHook.canProcessPayroll,\n    canGenerateReports: roleHook.canGenerateReports,\n    // Utility functions\n    getRoleDisplayName: roleHook.getRoleDisplayName,\n    getRoleColor: roleHook.getRoleColor,\n    getAvailableRoles: roleHook.getAvailableRoles,\n    getAccessibleRoutes: roleHook.getAccessibleRoutes,\n    getDefaultRoute: roleHook.getDefaultRoute,\n    refreshRole: roleHook.refreshRole,\n  };\n\n  return (\n    <AuthContext.Provider value={value}>\n      {children}\n    </AuthContext.Provider>\n  );\n};\n\nexport const useAuthContext = (): AuthContextType => {\n  const context = useContext(AuthContext);\n  if (context === undefined) {\n    throw new Error('useAuthContext must be used within an AuthProvider');\n  }\n  return context;\n};"
+import React, { createContext, useContext } from 'react';
+import type { ReactNode } from 'react';
+import { useRole } from '../hooks/useRole';
+import { useWalletContext } from './WalletContext';
+import { UserRole } from '../types';
+import type { User } from '../types';
+
+interface AuthContextType {
+  user: User | null;
+  isLoading: boolean;
+  error: string | null;
+  // Role checks
+  hasPermission: (permission: string) => boolean;
+  isEmployee: () => boolean;
+  isEmployer: () => boolean;
+  isAdmin: () => boolean;
+  isAuditor: () => boolean;
+  // Permission checks
+  canViewOwnSalary: () => boolean;
+  canViewOwnHistory: () => boolean;
+  canViewCompanyData: () => boolean;
+  canManageEmployees: () => boolean;
+  canProcessPayroll: () => boolean;
+  canGenerateReports: () => boolean;
+  // Utility functions
+  getRoleDisplayName: (role?: UserRole) => string;
+  getRoleColor: (role?: UserRole) => string;
+  getAvailableRoles: () => UserRole[];
+  getAccessibleRoutes: () => string[];
+  getDefaultRoute: () => string;
+  refreshRole: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const { provider, walletState } = useWalletContext();
+  const roleHook = useRole(provider || undefined, walletState.address || undefined);
+
+  const value: AuthContextType = {
+    user: roleHook.user,
+    isLoading: roleHook.isLoading,
+    error: roleHook.error,
+    // Role checks
+    hasPermission: (permission: string) => roleHook.hasPermission(permission as any),
+    isEmployee: roleHook.isEmployee,
+    isEmployer: roleHook.isEmployer,
+    isAdmin: roleHook.isAdmin,
+    isAuditor: roleHook.isAuditor,
+    // Permission checks
+    canViewOwnSalary: roleHook.canViewOwnSalary,
+    canViewOwnHistory: roleHook.canViewOwnHistory,
+    canViewCompanyData: roleHook.canViewCompanyData,
+    canManageEmployees: roleHook.canManageEmployees,
+    canProcessPayroll: roleHook.canProcessPayroll,
+    canGenerateReports: roleHook.canGenerateReports,
+    // Utility functions
+    getRoleDisplayName: roleHook.getRoleDisplayName,
+    getRoleColor: roleHook.getRoleColor,
+    getAvailableRoles: roleHook.getAvailableRoles,
+    getAccessibleRoutes: roleHook.getAccessibleRoutes,
+    getDefaultRoute: roleHook.getDefaultRoute,
+    refreshRole: roleHook.refreshRole,
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuthContext = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuthContext must be used within an AuthProvider');
+  }
+  return context;
+};

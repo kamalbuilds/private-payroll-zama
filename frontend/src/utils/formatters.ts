@@ -1,4 +1,4 @@
-import { EncryptedValue } from '../types';
+import type { EncryptedValue } from '../types';
 
 export const formatCurrency = (amount: number | bigint, currency = 'USD'): string => {
   const numAmount = typeof amount === 'bigint' ? Number(amount) : amount;

@@ -1,1 +1,315 @@
-import React, { useState } from 'react';\nimport {\n  Box,\n  Card,\n  CardContent,\n  Typography,\n  TextField,\n  Button,\n  Grid,\n  Alert,\n  List,\n  ListItem,\n  ListItemText,\n  ListItemSecondaryAction,\n  IconButton,\n  Dialog,\n  DialogTitle,\n  DialogContent,\n  DialogActions,\n  CircularProgress,\n  Chip,\n} from '@mui/material';\nimport {\n  Add as AddIcon,\n  Delete as DeleteIcon,\n  CardGiftcard as BonusIcon,\n  Send as SendIcon,\n} from '@mui/icons-material';\nimport { useWalletContext } from '../contexts/WalletContext';\nimport { usePayrollContract } from '../hooks/usePayrollContract';\nimport { isValidEthereumAddress, isValidAmount, formatAddress, formatCurrency } from '../utils/formatters';\nimport toast from 'react-hot-toast';\n\ninterface BonusRecipient {\n  address: string;\n  name: string;\n  amount: number;\n}\n\nexport const BonusDistribution: React.FC = () => {\n  const { provider, signer } = useWalletContext();\n  const { distributeBonus } = usePayrollContract(provider, signer);\n  \n  const [recipients, setRecipients] = useState<BonusRecipient[]>([]);\n  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);\n  const [isLoading, setIsLoading] = useState(false);\n  const [formData, setFormData] = useState({\n    address: '',\n    name: '',\n    amount: '',\n  });\n  const [errors, setErrors] = useState<Record<string, string>>({});\n\n  const validateForm = (): boolean => {\n    const newErrors: Record<string, string> = {};\n\n    if (!formData.address.trim()) {\n      newErrors.address = 'Employee address is required';\n    } else if (!isValidEthereumAddress(formData.address)) {\n      newErrors.address = 'Please enter a valid Ethereum address';\n    } else if (recipients.some(r => r.address.toLowerCase() === formData.address.toLowerCase())) {\n      newErrors.address = 'This employee is already in the list';\n    }\n\n    if (!formData.name.trim()) {\n      newErrors.name = 'Employee name is required';\n    }\n\n    if (!formData.amount.trim()) {\n      newErrors.amount = 'Bonus amount is required';\n    } else if (!isValidAmount(formData.amount)) {\n      newErrors.amount = 'Please enter a valid amount';\n    } else if (parseFloat(formData.amount) <= 0) {\n      newErrors.amount = 'Bonus amount must be greater than 0';\n    }\n\n    setErrors(newErrors);\n    return Object.keys(newErrors).length === 0;\n  };\n\n  const handleInputChange = (field: string, value: string) => {\n    setFormData(prev => ({ ...prev, [field]: value }));\n    if (errors[field]) {\n      setErrors(prev => ({ ...prev, [field]: '' }));\n    }\n  };\n\n  const handleAddRecipient = () => {\n    if (!validateForm()) return;\n\n    const newRecipient: BonusRecipient = {\n      address: formData.address.trim(),\n      name: formData.name.trim(),\n      amount: parseFloat(formData.amount),\n    };\n\n    setRecipients(prev => [...prev, newRecipient]);\n    setFormData({ address: '', name: '', amount: '' });\n    setIsAddDialogOpen(false);\n    setErrors({});\n    toast.success('Recipient added to bonus distribution list');\n  };\n\n  const handleRemoveRecipient = (index: number) => {\n    setRecipients(prev => prev.filter((_, i) => i !== index));\n    toast.success('Recipient removed from list');\n  };\n\n  const handleDistributeBonuses = async () => {\n    if (recipients.length === 0) {\n      toast.error('Please add at least one recipient');\n      return;\n    }\n\n    setIsLoading(true);\n    try {\n      const addresses = recipients.map(r => r.address);\n      const amounts = recipients.map(r => Math.round(r.amount * 100)); // Convert to cents\n      \n      const success = await distributeBonus(addresses, amounts);\n      \n      if (success) {\n        toast.success(`Bonuses distributed to ${recipients.length} employees!`);\n        setRecipients([]);\n      }\n    } catch (error: any) {\n      toast.error(error.message || 'Failed to distribute bonuses');\n    } finally {\n      setIsLoading(false);\n    }\n  };\n\n  const getTotalBonus = () => {\n    return recipients.reduce((sum, recipient) => sum + recipient.amount, 0);\n  };\n\n  const handleCloseDialog = () => {\n    if (!isLoading) {\n      setIsAddDialogOpen(false);\n      setFormData({ address: '', name: '', amount: '' });\n      setErrors({});\n    }\n  };\n\n  return (\n    <Box>\n      <Grid container spacing={3}>\n        <Grid item xs={12} md={8}>\n          <Card>\n            <CardContent>\n              <Box display=\"flex\" justifyContent=\"space-between\" alignItems=\"center\" mb={2}>\n                <Typography variant=\"h6\">\n                  Bonus Recipients\n                </Typography>\n                <Button\n                  variant=\"outlined\"\n                  startIcon={<AddIcon />}\n                  onClick={() => setIsAddDialogOpen(true)}\n                  size=\"small\"\n                >\n                  Add Recipient\n                </Button>\n              </Box>\n              \n              {recipients.length === 0 ? (\n                <Alert severity=\"info\">\n                  No recipients added yet. Click \"Add Recipient\" to start building your bonus distribution list.\n                </Alert>\n              ) : (\n                <List>\n                  {recipients.map((recipient, index) => (\n                    <ListItem key={index} divider>\n                      <ListItemText\n                        primary={\n                          <Box display=\"flex\" alignItems=\"center\" gap={1}>\n                            <Typography variant=\"subtitle1\" fontWeight={500}>\n                              {recipient.name}\n                            </Typography>\n                            <Chip \n                              label={formatCurrency(recipient.amount)}\n                              color=\"primary\"\n                              size=\"small\"\n                            />\n                          </Box>\n                        }\n                        secondary={formatAddress(recipient.address)}\n                      />\n                      <ListItemSecondaryAction>\n                        <IconButton \n                          edge=\"end\" \n                          onClick={() => handleRemoveRecipient(index)}\n                          color=\"error\"\n                        >\n                          <DeleteIcon />\n                        </IconButton>\n                      </ListItemSecondaryAction>\n                    </ListItem>\n                  ))}\n                </List>\n              )}\n            </CardContent>\n          </Card>\n        </Grid>\n\n        <Grid item xs={12} md={4}>\n          <Card>\n            <CardContent>\n              <Box display=\"flex\" alignItems=\"center\" mb={2}>\n                <BonusIcon color=\"primary\" sx={{ mr: 1 }} />\n                <Typography variant=\"h6\">\n                  Distribution Summary\n                </Typography>\n              </Box>\n              \n              <Box mb={2}>\n                <Typography variant=\"body2\" color=\"text.secondary\">\n                  Recipients\n                </Typography>\n                <Typography variant=\"h4\" color=\"primary.main\">\n                  {recipients.length}\n                </Typography>\n              </Box>\n              \n              <Box mb={3}>\n                <Typography variant=\"body2\" color=\"text.secondary\">\n                  Total Amount\n                </Typography>\n                <Typography variant=\"h5\" color=\"success.main\">\n                  {formatCurrency(getTotalBonus())}\n                </Typography>\n              </Box>\n              \n              <Button\n                variant=\"contained\"\n                fullWidth\n                startIcon={isLoading ? <CircularProgress size={16} /> : <SendIcon />}\n                onClick={handleDistributeBonuses}\n                disabled={isLoading || recipients.length === 0}\n                size=\"large\"\n              >\n                {isLoading ? 'Distributing...' : 'Distribute Bonuses'}\n              </Button>\n              \n              <Alert severity=\"info\" sx={{ mt: 2 }}>\n                <Typography variant=\"body2\">\n                  Bonus amounts will be encrypted before distribution. Each employee will only be able to decrypt their own bonus.\n                </Typography>\n              </Alert>\n            </CardContent>\n          </Card>\n        </Grid>\n      </Grid>\n\n      {/* Add Recipient Dialog */}\n      <Dialog\n        open={isAddDialogOpen}\n        onClose={handleCloseDialog}\n        maxWidth=\"sm\"\n        fullWidth\n      >\n        <DialogTitle>\n          Add Bonus Recipient\n        </DialogTitle>\n        <DialogContent>\n          <Box sx={{ pt: 1 }}>\n            <TextField\n              label=\"Employee Wallet Address\"\n              fullWidth\n              value={formData.address}\n              onChange={(e) => handleInputChange('address', e.target.value)}\n              error={!!errors.address}\n              helperText={errors.address || 'The employee\\'s Ethereum wallet address'}\n              margin=\"normal\"\n              placeholder=\"0x...\"\n            />\n            \n            <TextField\n              label=\"Employee Name\"\n              fullWidth\n              value={formData.name}\n              onChange={(e) => handleInputChange('name', e.target.value)}\n              error={!!errors.name}\n              helperText={errors.name || 'Employee\\'s name for identification'}\n              margin=\"normal\"\n            />\n            \n            <TextField\n              label=\"Bonus Amount (USD)\"\n              fullWidth\n              value={formData.amount}\n              onChange={(e) => handleInputChange('amount', e.target.value)}\n              error={!!errors.amount}\n              helperText={errors.amount || 'Bonus amount in USD'}\n              margin=\"normal\"\n              type=\"number\"\n              inputProps={{ min: 0, step: 0.01 }}\n            />\n          </Box>\n        </DialogContent>\n        <DialogActions>\n          <Button onClick={handleCloseDialog}>\n            Cancel\n          </Button>\n          <Button\n            onClick={handleAddRecipient}\n            variant=\"contained\"\n            startIcon={<AddIcon />}\n          >\n            Add Recipient\n          </Button>\n        </DialogActions>\n      </Dialog>\n    </Box>\n  );\n};"
+import React, { useState } from 'react';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  TextField,
+  Button,
+  Alert,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
+  Chip,
+} from '@mui/material';
+import { Grid } from '@mui/material';
+import {
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  CardGiftcard as BonusIcon,
+  Send as SendIcon,
+} from '@mui/icons-material';
+import { useWalletContext } from '../contexts/WalletContext';
+import { usePayrollContract } from '../hooks/usePayrollContract';
+import { isValidEthereumAddress, isValidAmount, formatAddress, formatCurrency } from '../utils/formatters';
+import toast from 'react-hot-toast';
+
+interface BonusRecipient {
+  address: string;
+  name: string;
+  amount: number;
+}
+
+export const BonusDistribution: React.FC = () => {
+  const { provider, signer } = useWalletContext();
+  const { distributeBonus } = usePayrollContract(provider || undefined, signer || undefined);
+  
+  const [recipients, setRecipients] = useState<BonusRecipient[]>([]);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    address: '',
+    name: '',
+    amount: '',
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.address.trim()) {
+      newErrors.address = 'Employee address is required';
+    } else if (!isValidEthereumAddress(formData.address)) {
+      newErrors.address = 'Please enter a valid Ethereum address';
+    } else if (recipients.some(r => r.address.toLowerCase() === formData.address.toLowerCase())) {
+      newErrors.address = 'This employee is already in the list';
+    }
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Employee name is required';
+    }
+
+    if (!formData.amount.trim()) {
+      newErrors.amount = 'Bonus amount is required';
+    } else if (!isValidAmount(formData.amount)) {
+      newErrors.amount = 'Please enter a valid amount';
+    } else if (parseFloat(formData.amount) <= 0) {
+      newErrors.amount = 'Bonus amount must be greater than 0';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleAddRecipient = () => {
+    if (!validateForm()) return;
+
+    const newRecipient: BonusRecipient = {
+      address: formData.address.trim(),
+      name: formData.name.trim(),
+      amount: parseFloat(formData.amount),
+    };
+
+    setRecipients(prev => [...prev, newRecipient]);
+    setFormData({ address: '', name: '', amount: '' });
+    setIsAddDialogOpen(false);
+    setErrors({});
+    toast.success('Recipient added to bonus distribution list');
+  };
+
+  const handleRemoveRecipient = (index: number) => {
+    setRecipients(prev => prev.filter((_, i) => i !== index));
+    toast.success('Recipient removed from list');
+  };
+
+  const handleDistributeBonuses = async () => {
+    if (recipients.length === 0) {
+      toast.error('Please add at least one recipient');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const addresses = recipients.map(r => r.address);
+      const amounts = recipients.map(r => Math.round(r.amount * 100)); // Convert to cents
+      
+      const success = await distributeBonus(addresses, amounts);
+      
+      if (success) {
+        toast.success(`Bonuses distributed to ${recipients.length} employees!`);
+        setRecipients([]);
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to distribute bonuses');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getTotalBonus = () => {
+    return recipients.reduce((sum, recipient) => sum + recipient.amount, 0);
+  };
+
+  const handleCloseDialog = () => {
+    if (!isLoading) {
+      setIsAddDialogOpen(false);
+      setFormData({ address: '', name: '', amount: '' });
+      setErrors({});
+    }
+  };
+
+  return (
+    <Box>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 8 }}>
+          <Card>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">
+                  Bonus Recipients
+                </Typography>
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => setIsAddDialogOpen(true)}
+                  size="small"
+                >
+                  Add Recipient
+                </Button>
+              </Box>
+              
+              {recipients.length === 0 ? (
+                <Alert severity="info">
+                  No recipients added yet. Click "Add Recipient" to start building your bonus distribution list.
+                </Alert>
+              ) : (
+                <List>
+                  {recipients.map((recipient, index) => (
+                    <ListItem key={index} divider>
+                      <ListItemText
+                        primary={
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography variant="subtitle1" fontWeight={500}>
+                              {recipient.name}
+                            </Typography>
+                            <Chip 
+                              label={formatCurrency(recipient.amount)}
+                              color="primary"
+                              size="small"
+                            />
+                          </Box>
+                        }
+                        secondary={formatAddress(recipient.address)}
+                      />
+                      <ListItemSecondaryAction>
+                        <IconButton 
+                          edge="end" 
+                          onClick={() => handleRemoveRecipient(index)}
+                          color="error"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <BonusIcon color="primary" sx={{ mr: 1 }} />
+                <Typography variant="h6">
+                  Distribution Summary
+                </Typography>
+              </Box>
+              
+              <Box mb={2}>
+                <Typography variant="body2" color="text.secondary">
+                  Recipients
+                </Typography>
+                <Typography variant="h4" color="primary.main">
+                  {recipients.length}
+                </Typography>
+              </Box>
+              
+              <Box mb={3}>
+                <Typography variant="body2" color="text.secondary">
+                  Total Amount
+                </Typography>
+                <Typography variant="h5" color="success.main">
+                  {formatCurrency(getTotalBonus())}
+                </Typography>
+              </Box>
+              
+              <Button
+                variant="contained"
+                fullWidth
+                startIcon={isLoading ? <CircularProgress size={16} /> : <SendIcon />}
+                onClick={handleDistributeBonuses}
+                disabled={isLoading || recipients.length === 0}
+                size="large"
+              >
+                {isLoading ? 'Distributing...' : 'Distribute Bonuses'}
+              </Button>
+              
+              <Alert severity="info" sx={{ mt: 2 }}>
+                <Typography variant="body2">
+                  Bonus amounts will be encrypted before distribution. Each employee will only be able to decrypt their own bonus.
+                </Typography>
+              </Alert>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Add Recipient Dialog */}
+      <Dialog
+        open={isAddDialogOpen}
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Add Bonus Recipient
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <TextField
+              label="Employee Wallet Address"
+              fullWidth
+              value={formData.address}
+              onChange={(e) => handleInputChange('address', e.target.value)}
+              error={!!errors.address}
+              helperText={errors.address || 'The employee Ethereum wallet address'}
+              margin="normal"
+              placeholder="0x..."
+            />
+            
+            <TextField
+              label="Employee Name"
+              fullWidth
+              value={formData.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
+              error={!!errors.name}
+              helperText={errors.name || 'Employee name for identification'}
+              margin="normal"
+            />
+            
+            <TextField
+              label="Bonus Amount (USD)"
+              fullWidth
+              value={formData.amount}
+              onChange={(e) => handleInputChange('amount', e.target.value)}
+              error={!!errors.amount}
+              helperText={errors.amount || 'Bonus amount in USD'}
+              margin="normal"
+              type="number"
+              inputProps={{ min: 0, step: 0.01 }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAddRecipient}
+            variant="contained"
+            startIcon={<AddIcon />}
+          >
+            Add Recipient
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};

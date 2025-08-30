@@ -1,1 +1,288 @@
-import React, { useState, useEffect } from 'react';\nimport {\n  Grid,\n  Paper,\n  Typography,\n  Box,\n  Card,\n  CardContent,\n  Button,\n  Alert,\n  CircularProgress,\n  Tabs,\n  Tab,\n} from '@mui/material';\nimport {\n  People as PeopleIcon,\n  AttachMoney as MoneyIcon,\n  Business as BusinessIcon,\n  TrendingUp as TrendingUpIcon,\n  Add as AddIcon,\n  CardGiftcard as BonusIcon,\n} from '@mui/icons-material';\nimport { EmployerGuard } from '../components/RoleGuard';\nimport { EmployeeManagement } from '../components/EmployeeManagement';\nimport { BonusDistribution } from '../components/BonusDistribution';\nimport { useWalletContext } from '../contexts/WalletContext';\nimport { usePayrollContract } from '../hooks/usePayrollContract';\n\ninterface TabPanelProps {\n  children?: React.ReactNode;\n  index: number;\n  value: number;\n}\n\nfunction TabPanel(props: TabPanelProps) {\n  const { children, value, index, ...other } = props;\n\n  return (\n    <div\n      role=\"tabpanel\"\n      hidden={value !== index}\n      id={`employer-tabpanel-${index}`}\n      aria-labelledby={`employer-tab-${index}`}\n      {...other}\n    >\n      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}\n    </div>\n  );\n}\n\nexport const EmployerDashboard: React.FC = () => {\n  const { walletState, provider, signer } = useWalletContext();\n  const { getActiveEmployeeCount } = usePayrollContract(provider, signer);\n  \n  const [activeTab, setActiveTab] = useState(0);\n  const [stats, setStats] = useState({\n    totalEmployees: 0,\n    activeEmployees: 0,\n    totalPayroll: 0,\n    avgSalary: 0,\n  });\n  const [isLoading, setIsLoading] = useState(true);\n  const [error, setError] = useState<string | null>(null);\n\n  useEffect(() => {\n    fetchDashboardStats();\n  }, [walletState.address]);\n\n  const fetchDashboardStats = async () => {\n    setIsLoading(true);\n    setError(null);\n\n    try {\n      const activeCount = await getActiveEmployeeCount();\n      \n      setStats({\n        totalEmployees: activeCount,\n        activeEmployees: activeCount,\n        totalPayroll: 0, // Would be calculated from encrypted values\n        avgSalary: 0, // Would be calculated from encrypted values\n      });\n    } catch (err: any) {\n      setError(err.message || 'Failed to fetch dashboard statistics');\n    } finally {\n      setIsLoading(false);\n    }\n  };\n\n  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {\n    setActiveTab(newValue);\n  };\n\n  if (isLoading) {\n    return (\n      <EmployerGuard>\n        <Box display=\"flex\" justifyContent=\"center\" alignItems=\"center\" p={8}>\n          <CircularProgress size={60} />\n          <Typography variant=\"h6\" ml={2}>\n            Loading employer dashboard...\n          </Typography>\n        </Box>\n      </EmployerGuard>\n    );\n  }\n\n  return (\n    <EmployerGuard>\n      <Box>\n        {/* Header */}\n        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'secondary.main', color: 'secondary.contrastText' }}>\n          <Box display=\"flex\" justifyContent=\"between\" alignItems=\"center\">\n            <Box>\n              <Typography variant=\"h4\" fontWeight=\"bold\">\n                Employer Dashboard\n              </Typography>\n              <Typography variant=\"subtitle1\" sx={{ opacity: 0.9 }}>\n                Manage employees and distribute bonuses with full privacy\n              </Typography>\n            </Box>\n          </Box>\n        </Paper>\n\n        {error && (\n          <Alert severity=\"error\" sx={{ mb: 3 }}>\n            {error}\n          </Alert>\n        )}\n\n        {/* Statistics Cards */}\n        <Grid container spacing={3} sx={{ mb: 3 }}>\n          <Grid item xs={12} sm={6} md={3}>\n            <Card>\n              <CardContent>\n                <Box display=\"flex\" alignItems=\"center\" mb={2}>\n                  <PeopleIcon color=\"primary\" sx={{ mr: 1 }} />\n                  <Typography variant=\"h6\">Total Employees</Typography>\n                </Box>\n                <Typography variant=\"h4\" color=\"primary.main\">\n                  {stats.totalEmployees}\n                </Typography>\n                <Typography variant=\"body2\" color=\"text.secondary\">\n                  Active employees\n                </Typography>\n              </CardContent>\n            </Card>\n          </Grid>\n\n          <Grid item xs={12} sm={6} md={3}>\n            <Card>\n              <CardContent>\n                <Box display=\"flex\" alignItems=\"center\" mb={2}>\n                  <BusinessIcon color=\"secondary\" sx={{ mr: 1 }} />\n                  <Typography variant=\"h6\">Active Staff</Typography>\n                </Box>\n                <Typography variant=\"h4\" color=\"secondary.main\">\n                  {stats.activeEmployees}\n                </Typography>\n                <Typography variant=\"body2\" color=\"text.secondary\">\n                  Currently employed\n                </Typography>\n              </CardContent>\n            </Card>\n          </Grid>\n\n          <Grid item xs={12} sm={6} md={3}>\n            <Card>\n              <CardContent>\n                <Box display=\"flex\" alignItems=\"center\" mb={2}>\n                  <MoneyIcon color=\"success\" sx={{ mr: 1 }} />\n                  <Typography variant=\"h6\">Payroll Budget</Typography>\n                </Box>\n                <Typography variant=\"h4\" color=\"success.main\">\n                  🔒 Encrypted\n                </Typography>\n                <Typography variant=\"body2\" color=\"text.secondary\">\n                  Total monthly budget\n                </Typography>\n              </CardContent>\n            </Card>\n          </Grid>\n\n          <Grid item xs={12} sm={6} md={3}>\n            <Card>\n              <CardContent>\n                <Box display=\"flex\" alignItems=\"center\" mb={2}>\n                  <TrendingUpIcon color=\"info\" sx={{ mr: 1 }} />\n                  <Typography variant=\"h6\">Avg. Salary</Typography>\n                </Box>\n                <Typography variant=\"h4\" color=\"info.main\">\n                  🔒 Encrypted\n                </Typography>\n                <Typography variant=\"body2\" color=\"text.secondary\">\n                  Average compensation\n                </Typography>\n              </CardContent>\n            </Card>\n          </Grid>\n        </Grid>\n\n        {/* Tabs for different functions */}\n        <Paper sx={{ mb: 3 }}>\n          <Tabs \n            value={activeTab} \n            onChange={handleTabChange} \n            variant=\"fullWidth\"\n            sx={{ borderBottom: 1, borderColor: 'divider' }}\n          >\n            <Tab \n              label=\"Employee Management\" \n              icon={<PeopleIcon />} \n              iconPosition=\"start\"\n            />\n            <Tab \n              label=\"Bonus Distribution\" \n              icon={<BonusIcon />} \n              iconPosition=\"start\"\n            />\n          </Tabs>\n\n          <TabPanel value={activeTab} index={0}>\n            <EmployeeManagement onEmployeeChange={fetchDashboardStats} />\n          </TabPanel>\n\n          <TabPanel value={activeTab} index={1}>\n            <BonusDistribution />\n          </TabPanel>\n        </Paper>\n\n        {/* Quick Actions */}\n        <Paper sx={{ p: 3 }}>\n          <Typography variant=\"h6\" gutterBottom>\n            Quick Actions\n          </Typography>\n          <Grid container spacing={2} sx={{ mt: 1 }}>\n            <Grid item xs={12} sm={6} md={3}>\n              <Button\n                variant=\"outlined\"\n                fullWidth\n                startIcon={<AddIcon />}\n                onClick={() => setActiveTab(0)}\n              >\n                Add Employee\n              </Button>\n            </Grid>\n            <Grid item xs={12} sm={6} md={3}>\n              <Button\n                variant=\"outlined\"\n                fullWidth\n                startIcon={<BonusIcon />}\n                onClick={() => setActiveTab(1)}\n              >\n                Distribute Bonus\n              </Button>\n            </Grid>\n            <Grid item xs={12} sm={6} md={3}>\n              <Button\n                variant=\"outlined\"\n                fullWidth\n                startIcon={<TrendingUpIcon />}\n                disabled\n              >\n                View Analytics\n              </Button>\n            </Grid>\n            <Grid item xs={12} sm={6} md={3}>\n              <Button\n                variant=\"outlined\"\n                fullWidth\n                startIcon={<PeopleIcon />}\n                disabled\n              >\n                Generate Report\n              </Button>\n            </Grid>\n          </Grid>\n        </Paper>\n\n        {/* Privacy Notice */}\n        <Alert severity=\"info\" sx={{ mt: 3 }}>\n          <Typography variant=\"body2\">\n            <strong>Privacy Notice:</strong> All employee salary information is encrypted using Fully Homomorphic Encryption (FHE). \n            As an employer, you can manage employees and distribute bonuses without seeing individual salary details.\n          </Typography>\n        </Alert>\n      </Box>\n    </EmployerGuard>\n  );\n};"
+import React, { useState, useEffect } from 'react';
+import {
+  Paper,
+  Typography,
+  Box,
+  Card,
+  CardContent,
+  Button,
+  Alert,
+  CircularProgress,
+  Tabs,
+  Tab,
+} from '@mui/material';
+import { Grid } from '@mui/material';
+import {
+  People as PeopleIcon,
+  AttachMoney as MoneyIcon,
+  Business as BusinessIcon,
+  TrendingUp as TrendingUpIcon,
+  Add as AddIcon,
+  CardGiftcard as BonusIcon,
+} from '@mui/icons-material';
+import { EmployerGuard } from '../components/RoleGuard';
+import { EmployeeManagement } from '../components/EmployeeManagement';
+import { BonusDistribution } from '../components/BonusDistribution';
+import { useWalletContext } from '../contexts/WalletContext';
+import { usePayrollContract } from '../hooks/usePayrollContract';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`employer-tabpanel-${index}`}
+      aria-labelledby={`employer-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+    </div>
+  );
+}
+
+export const EmployerDashboard: React.FC = () => {
+  const { walletState, provider, signer } = useWalletContext();
+  const { getActiveEmployeeCount } = usePayrollContract(provider || undefined, signer || undefined);
+  
+  const [activeTab, setActiveTab] = useState(0);
+  const [stats, setStats] = useState({
+    totalEmployees: 0,
+    activeEmployees: 0,
+    totalPayroll: 0,
+    avgSalary: 0,
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, [walletState.address]);
+
+  const fetchDashboardStats = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const activeCount = await getActiveEmployeeCount();
+      
+      setStats({
+        totalEmployees: activeCount,
+        activeEmployees: activeCount,
+        totalPayroll: 0, // Would be calculated from encrypted values
+        avgSalary: 0, // Would be calculated from encrypted values
+      });
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch dashboard statistics');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+  };
+
+  if (isLoading) {
+    return (
+      <EmployerGuard>
+        <Box display="flex" justifyContent="center" alignItems="center" p={8}>
+          <CircularProgress size={60} />
+          <Typography variant="h6" ml={2}>
+            Loading employer dashboard...
+          </Typography>
+        </Box>
+      </EmployerGuard>
+    );
+  }
+
+  return (
+    <EmployerGuard>
+      <Box>
+        {/* Header */}
+        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'secondary.main', color: 'secondary.contrastText' }}>
+          <Box display="flex" justifyContent="between" alignItems="center">
+            <Box>
+              <Typography variant="h4" fontWeight="bold">
+                Employer Dashboard
+              </Typography>
+              <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+                Manage employees and distribute bonuses with full privacy
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        {/* Statistics Cards */}
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card>
+              <CardContent>
+                <Box display="flex" alignItems="center" mb={2}>
+                  <PeopleIcon color="primary" sx={{ mr: 1 }} />
+                  <Typography variant="h6">Total Employees</Typography>
+                </Box>
+                <Typography variant="h4" color="primary.main">
+                  {stats.totalEmployees}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Active employees
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card>
+              <CardContent>
+                <Box display="flex" alignItems="center" mb={2}>
+                  <BusinessIcon color="secondary" sx={{ mr: 1 }} />
+                  <Typography variant="h6">Active Staff</Typography>
+                </Box>
+                <Typography variant="h4" color="secondary.main">
+                  {stats.activeEmployees}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Currently employed
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card>
+              <CardContent>
+                <Box display="flex" alignItems="center" mb={2}>
+                  <MoneyIcon color="success" sx={{ mr: 1 }} />
+                  <Typography variant="h6">Payroll Budget</Typography>
+                </Box>
+                <Typography variant="h4" color="success.main">
+                  🔒 Encrypted
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Total monthly budget
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Card>
+              <CardContent>
+                <Box display="flex" alignItems="center" mb={2}>
+                  <TrendingUpIcon color="info" sx={{ mr: 1 }} />
+                  <Typography variant="h6">Avg. Salary</Typography>
+                </Box>
+                <Typography variant="h4" color="info.main">
+                  🔒 Encrypted
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Average compensation
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Tabs for different functions */}
+        <Paper sx={{ mb: 3 }}>
+          <Tabs 
+            value={activeTab} 
+            onChange={handleTabChange} 
+            variant="fullWidth"
+            sx={{ borderBottom: 1, borderColor: 'divider' }}
+          >
+            <Tab 
+              label="Employee Management" 
+              icon={<PeopleIcon />} 
+              iconPosition="start"
+            />
+            <Tab 
+              label="Bonus Distribution" 
+              icon={<BonusIcon />} 
+              iconPosition="start"
+            />
+          </Tabs>
+
+          <TabPanel value={activeTab} index={0}>
+            <EmployeeManagement onEmployeeChange={fetchDashboardStats} />
+          </TabPanel>
+
+          <TabPanel value={activeTab} index={1}>
+            <BonusDistribution />
+          </TabPanel>
+        </Paper>
+
+        {/* Quick Actions */}
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Quick Actions
+          </Typography>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={<AddIcon />}
+                onClick={() => setActiveTab(0)}
+              >
+                Add Employee
+              </Button>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={<BonusIcon />}
+                onClick={() => setActiveTab(1)}
+              >
+                Distribute Bonus
+              </Button>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={<TrendingUpIcon />}
+                disabled
+              >
+                View Analytics
+              </Button>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Button
+                variant="outlined"
+                fullWidth
+                startIcon={<PeopleIcon />}
+                disabled
+              >
+                Generate Report
+              </Button>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        {/* Privacy Notice */}
+        <Alert severity="info" sx={{ mt: 3 }}>
+          <Typography variant="body2">
+            <strong>Privacy Notice:</strong> All employee salary information is encrypted using Fully Homomorphic Encryption (FHE). 
+            As an employer, you can manage employees and distribute bonuses without seeing individual salary details.
+          </Typography>
+        </Alert>
+      </Box>
+    </EmployerGuard>
+  );
+};

@@ -4,10 +4,9 @@ import { ENCRYPTION_CONFIG } from './constants';
 // Mock FHE encryption utilities - Replace with actual FHEVM SDK
 export class FHEManager {
   private publicKey: string | null = null;
-  private provider: ethers.Provider | null = null;
-
-  constructor(provider?: ethers.Provider) {
-    this.provider = provider || null;
+  constructor(_provider?: ethers.Provider) {
+    // Provider is passed for initialization but not used in mock implementation
+    void _provider;
   }
 
   async initialize(): Promise<void> {
@@ -57,7 +56,7 @@ export class FHEManager {
     return '0xenc_' + encoded.replace(/[^a-zA-Z0-9]/g, '');
   }
 
-  private mockDecrypt(encryptedValue: string, userAddress: string): string {
+  private mockDecrypt(encryptedValue: string, _userAddress: string): string {
     // This is a mock implementation - replace with actual FHEVM decryption
     try {
       const withoutPrefix = encryptedValue.replace('0xenc_', '');
@@ -69,7 +68,7 @@ export class FHEManager {
     }
   }
 
-  canDecrypt(userAddress: string, encryptedValue: string): boolean {
+  canDecrypt(_userAddress: string, _encryptedValue: string): boolean {
     // In real implementation, this would check FHEVM permissions
     // For now, return true for demonstration
     return true;

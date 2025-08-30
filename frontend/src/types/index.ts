@@ -5,12 +5,14 @@ export interface User {
   employeeId?: string;
 }
 
-export enum UserRole {
-  EMPLOYEE = 'employee',
-  EMPLOYER = 'employer',
-  ADMIN = 'admin',
-  AUDITOR = 'auditor'
-}
+export type UserRole = 'employee' | 'employer' | 'admin' | 'auditor';
+
+export const UserRole = {
+  EMPLOYEE: 'employee' as const,
+  EMPLOYER: 'employer' as const,
+  ADMIN: 'admin' as const,
+  AUDITOR: 'auditor' as const,
+} as const;
 
 export interface EncryptedValue {
   data: string;

@@ -1,1 +1,239 @@
-import React, { useState } from 'react';\nimport {\n  Box,\n  Table,\n  TableBody,\n  TableCell,\n  TableContainer,\n  TableHead,\n  TableRow,\n  Paper,\n  TablePagination,\n  Chip,\n  Typography,\n  IconButton,\n  Tooltip,\n  Alert,\n} from '@mui/material';\nimport {\n  Receipt as ReceiptIcon,\n  OpenInNew as OpenIcon,\n  Download as DownloadIcon,\n} from '@mui/icons-material';\nimport { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';\nimport { PayrollEntry } from '../types';\nimport { EncryptedDataDisplay } from './EncryptedDataDisplay';\nimport { formatDate, formatDateTime, formatTransactionHash } from '../utils/formatters';\n\ninterface PaymentHistoryProps {\n  payments: PayrollEntry[];\n  showEmployeeColumn?: boolean;\n  currentUserAddress?: string;\n  onViewDetails?: (payment: PayrollEntry) => void;\n  onDownloadReceipt?: (payment: PayrollEntry) => void;\n}\n\nexport const PaymentHistory: React.FC<PaymentHistoryProps> = ({\n  payments,\n  showEmployeeColumn = true,\n  currentUserAddress,\n  onViewDetails,\n  onDownloadReceipt,\n}) => {\n  const [page, setPage] = useState(0);\n  const [rowsPerPage, setRowsPerPage] = useState(10);\n\n  const handleChangePage = (event: unknown, newPage: number) => {\n    setPage(newPage);\n  };\n\n  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {\n    setRowsPerPage(parseInt(event.target.value, 10));\n    setPage(0);\n  };\n\n  const getStatusColor = (status: PayrollEntry['status']) => {\n    switch (status) {\n      case 'completed':\n        return 'success';\n      case 'processing':\n        return 'warning';\n      case 'pending':\n        return 'info';\n      case 'failed':\n        return 'error';\n      default:\n        return 'default';\n    }\n  };\n\n  const columns: GridColDef[] = [\n    {\n      field: 'payPeriod',\n      headerName: 'Pay Period',\n      width: 130,\n      renderCell: (params: GridRenderCellParams) => (\n        <Typography variant=\"body2\">\n          {formatDate(params.value)}\n        </Typography>\n      ),\n    },\n    ...(showEmployeeColumn ? [{\n      field: 'employeeName',\n      headerName: 'Employee',\n      width: 150,\n      renderCell: (params: GridRenderCellParams) => (\n        <Box>\n          <Typography variant=\"body2\" fontWeight={500}>\n            {params.value || 'Unknown'}\n          </Typography>\n          <Typography variant=\"caption\" color=\"text.secondary\">\n            {formatTransactionHash(params.row.employeeId)}\n          </Typography>\n        </Box>\n      ),\n    }] : []),\n    {\n      field: 'baseSalary',\n      headerName: 'Base Salary',\n      width: 150,\n      renderCell: (params: GridRenderCellParams) => (\n        <EncryptedDataDisplay\n          encryptedValue={params.value}\n          variant=\"currency\"\n          size=\"small\"\n          showToggle={false}\n          placeholder=\"••••\"\n        />\n      ),\n    },\n    {\n      field: 'bonus',\n      headerName: 'Bonus',\n      width: 120,\n      renderCell: (params: GridRenderCellParams) => (\n        <EncryptedDataDisplay\n          encryptedValue={params.value}\n          variant=\"currency\"\n          size=\"small\"\n          showToggle={false}\n          placeholder=\"$0.00\"\n        />\n      ),\n    },\n    {\n      field: 'netPay',\n      headerName: 'Net Pay',\n      width: 150,\n      renderCell: (params: GridRenderCellParams) => (\n        <EncryptedDataDisplay\n          encryptedValue={params.value}\n          variant=\"currency\"\n          size=\"small\"\n          showToggle={true}\n        />\n      ),\n    },\n    {\n      field: 'status',\n      headerName: 'Status',\n      width: 100,\n      renderCell: (params: GridRenderCellParams) => (\n        <Chip\n          label={params.value}\n          size=\"small\"\n          color={getStatusColor(params.value)}\n          variant=\"outlined\"\n        />\n      ),\n    },\n    {\n      field: 'processedAt',\n      headerName: 'Date Processed',\n      width: 150,\n      renderCell: (params: GridRenderCellParams) => (\n        <Typography variant=\"body2\">\n          {formatDateTime(params.value)}\n        </Typography>\n      ),\n    },\n    {\n      field: 'transactionHash',\n      headerName: 'Transaction',\n      width: 120,\n      renderCell: (params: GridRenderCellParams) => (\n        <Box>\n          {params.value ? (\n            <Tooltip title=\"View on explorer\">\n              <IconButton\n                size=\"small\"\n                onClick={() => {\n                  // Open transaction in block explorer\n                  window.open(`https://explorer.zama.ai/tx/${params.value}`, '_blank');\n                }}\n              >\n                <OpenIcon fontSize=\"small\" />\n              </IconButton>\n            </Tooltip>\n          ) : (\n            <Typography variant=\"caption\" color=\"text.secondary\">\n              Pending\n            </Typography>\n          )}\n        </Box>\n      ),\n    },\n    {\n      field: 'actions',\n      headerName: 'Actions',\n      width: 100,\n      sortable: false,\n      renderCell: (params: GridRenderCellParams) => (\n        <Box>\n          {onViewDetails && (\n            <Tooltip title=\"View details\">\n              <IconButton\n                size=\"small\"\n                onClick={() => onViewDetails(params.row)}\n              >\n                <ReceiptIcon fontSize=\"small\" />\n              </IconButton>\n            </Tooltip>\n          )}\n          {onDownloadReceipt && (\n            <Tooltip title=\"Download receipt\">\n              <IconButton\n                size=\"small\"\n                onClick={() => onDownloadReceipt(params.row)}\n              >\n                <DownloadIcon fontSize=\"small\" />\n              </IconButton>\n            </Tooltip>\n          )}\n        </Box>\n      ),\n    },\n  ];\n\n  if (payments.length === 0) {\n    return (\n      <Alert severity=\"info\" sx={{ mt: 2 }}>\n        No payment history available. Payments will appear here once processed.\n      </Alert>\n    );\n  }\n\n  return (\n    <Box sx={{ width: '100%' }}>\n      <DataGrid\n        rows={payments}\n        columns={columns}\n        paginationModel={{ page, pageSize: rowsPerPage }}\n        onPaginationModelChange={(model) => {\n          setPage(model.page);\n          setRowsPerPage(model.pageSize);\n        }}\n        pageSizeOptions={[5, 10, 25, 50]}\n        disableRowSelectionOnClick\n        autoHeight\n        sx={{\n          '& .MuiDataGrid-cell': {\n            borderBottom: '1px solid',\n            borderBottomColor: 'divider',\n          },\n          '& .MuiDataGrid-columnHeaders': {\n            backgroundColor: 'grey.50',\n            borderBottom: '2px solid',\n            borderBottomColor: 'divider',\n          },\n        }}\n      />\n    </Box>\n  );\n};"
+import React, { useState } from 'react';
+import {
+  Box,
+  Chip,
+  Typography,
+  IconButton,
+  Tooltip,
+  Alert,
+} from '@mui/material';
+import {
+  Receipt as ReceiptIcon,
+  OpenInNew as OpenIcon,
+  Download as DownloadIcon,
+} from '@mui/icons-material';
+import { DataGrid } from '@mui/x-data-grid';
+import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import type { PayrollEntry } from '../types';
+import { EncryptedDataDisplay } from './EncryptedDataDisplay';
+import { formatDate, formatDateTime, formatTransactionHash } from '../utils/formatters';
+
+interface PaymentHistoryProps {
+  payments: PayrollEntry[];
+  showEmployeeColumn?: boolean;
+  currentUserAddress?: string;
+  onViewDetails?: (payment: PayrollEntry) => void;
+  onDownloadReceipt?: (payment: PayrollEntry) => void;
+}
+
+export const PaymentHistory: React.FC<PaymentHistoryProps> = ({
+  payments,
+  showEmployeeColumn = true,
+  currentUserAddress: _currentUserAddress,
+  onViewDetails,
+  onDownloadReceipt,
+}) => {
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Removed unused handlers for pagination
+
+  const getStatusColor = (status: PayrollEntry['status']) => {
+    switch (status) {
+      case 'completed':
+        return 'success';
+      case 'processing':
+        return 'warning';
+      case 'pending':
+        return 'info';
+      case 'failed':
+        return 'error';
+      default:
+        return 'default';
+    }
+  };
+
+  const columns: GridColDef[] = [
+    {
+      field: 'payPeriod',
+      headerName: 'Pay Period',
+      width: 130,
+      renderCell: (params: GridRenderCellParams) => (
+        <Typography variant="body2">
+          {formatDate(params.value)}
+        </Typography>
+      ),
+    },
+    ...(showEmployeeColumn ? [{
+      field: 'employeeName',
+      headerName: 'Employee',
+      width: 150,
+      renderCell: (params: GridRenderCellParams) => (
+        <Box>
+          <Typography variant="body2" fontWeight={500}>
+            {params.value || 'Unknown'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {formatTransactionHash(params.row.employeeId)}
+          </Typography>
+        </Box>
+      ),
+    }] : []),
+    {
+      field: 'baseSalary',
+      headerName: 'Base Salary',
+      width: 150,
+      renderCell: (params: GridRenderCellParams) => (
+        <EncryptedDataDisplay
+          encryptedValue={params.value}
+          variant="currency"
+          size="small"
+          showToggle={false}
+          placeholder="••••"
+        />
+      ),
+    },
+    {
+      field: 'bonus',
+      headerName: 'Bonus',
+      width: 120,
+      renderCell: (params: GridRenderCellParams) => (
+        <EncryptedDataDisplay
+          encryptedValue={params.value}
+          variant="currency"
+          size="small"
+          showToggle={false}
+          placeholder="$0.00"
+        />
+      ),
+    },
+    {
+      field: 'netPay',
+      headerName: 'Net Pay',
+      width: 150,
+      renderCell: (params: GridRenderCellParams) => (
+        <EncryptedDataDisplay
+          encryptedValue={params.value}
+          variant="currency"
+          size="small"
+          showToggle={true}
+        />
+      ),
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 100,
+      renderCell: (params: GridRenderCellParams) => (
+        <Chip
+          label={params.value}
+          size="small"
+          color={getStatusColor(params.value)}
+          variant="outlined"
+        />
+      ),
+    },
+    {
+      field: 'processedAt',
+      headerName: 'Date Processed',
+      width: 150,
+      renderCell: (params: GridRenderCellParams) => (
+        <Typography variant="body2">
+          {formatDateTime(params.value)}
+        </Typography>
+      ),
+    },
+    {
+      field: 'transactionHash',
+      headerName: 'Transaction',
+      width: 120,
+      renderCell: (params: GridRenderCellParams) => (
+        <Box>
+          {params.value ? (
+            <Tooltip title="View on explorer">
+              <IconButton
+                size="small"
+                onClick={() => {
+                  // Open transaction in block explorer
+                  window.open(`https://explorer.zama.ai/tx/${params.value}`, '_blank');
+                }}
+              >
+                <OpenIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              Pending
+            </Typography>
+          )}
+        </Box>
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 100,
+      sortable: false,
+      renderCell: (params: GridRenderCellParams) => (
+        <Box>
+          {onViewDetails && (
+            <Tooltip title="View details">
+              <IconButton
+                size="small"
+                onClick={() => onViewDetails(params.row)}
+              >
+                <ReceiptIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          {onDownloadReceipt && (
+            <Tooltip title="Download receipt">
+              <IconButton
+                size="small"
+                onClick={() => onDownloadReceipt(params.row)}
+              >
+                <DownloadIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      ),
+    },
+  ];
+
+  if (payments.length === 0) {
+    return (
+      <Alert severity="info" sx={{ mt: 2 }}>
+        No payment history available. Payments will appear here once processed.
+      </Alert>
+    );
+  }
+
+  return (
+    <Box sx={{ width: '100%' }}>
+      <DataGrid
+        rows={payments}
+        columns={columns}
+        paginationModel={{ page, pageSize: rowsPerPage }}
+        onPaginationModelChange={(model) => {
+          setPage(model.page);
+          setRowsPerPage(model.pageSize);
+        }}
+        pageSizeOptions={[5, 10, 25, 50]}
+        disableRowSelectionOnClick
+        autoHeight
+        sx={{
+          '& .MuiDataGrid-cell': {
+            borderBottom: '1px solid',
+            borderBottomColor: 'divider',
+          },
+          '& .MuiDataGrid-columnHeaders': {
+            backgroundColor: 'grey.50',
+            borderBottom: '2px solid',
+            borderBottomColor: 'divider',
+          },
+        }}
+      />
+    </Box>
+  );
+};

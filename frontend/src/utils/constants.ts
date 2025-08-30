@@ -2,9 +2,9 @@ import { UserRole } from '../types';
 
 // Contract addresses - Update these with deployed contract addresses
 export const CONTRACT_ADDRESSES = {
-  payrollContract: process.env.VITE_PAYROLL_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000',
-  fhevm: process.env.VITE_FHEVM_ADDRESS || '0x0000000000000000000000000000000000000000',
-  gateway: process.env.VITE_GATEWAY_ADDRESS || '0x0000000000000000000000000000000000000000',
+  payrollContract:  '0x4e763f42227DF08696389d4fcA2Df0b5Fe33f246',
+  fhevm:  '0x4e763f42227DF08696389d4fcA2Df0b5Fe33f246',
+  gateway: '0x4e763f42227DF08696389d4fcA2Df0b5Fe33f246',
 };
 
 // Supported chain IDs

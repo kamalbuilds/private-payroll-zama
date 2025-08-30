@@ -1,1 +1,219 @@
-import { useState, useEffect, useCallback } from 'react';\nimport { UserRole, User } from '../types';\nimport { ROLE_PERMISSIONS } from '../utils/constants';\nimport { usePayrollContract } from './usePayrollContract';\nimport { ethers } from 'ethers';\n\nexport const useRole = (provider?: ethers.Provider, userAddress?: string) => {\n  const [user, setUser] = useState<User | null>(null);\n  const [isLoading, setIsLoading] = useState(false);\n  const [error, setError] = useState<string | null>(null);\n  const { getUserRole } = usePayrollContract(provider);\n\n  useEffect(() => {\n    if (userAddress) {\n      fetchUserRole();\n    } else {\n      setUser(null);\n    }\n  }, [userAddress]);\n\n  const fetchUserRole = useCallback(async () => {\n    if (!userAddress) return;\n\n    setIsLoading(true);\n    setError(null);\n\n    try {\n      const role = await getUserRole(userAddress);\n      if (role) {\n        setUser({\n          address: userAddress,\n          role,\n          // Additional user data would be fetched from contract or database\n        });\n      } else {\n        // Default to employee role if not set\n        setUser({\n          address: userAddress,\n          role: UserRole.EMPLOYEE,\n        });\n      }\n    } catch (error: any) {\n      const errorMessage = error.message || 'Failed to fetch user role';\n      setError(errorMessage);\n      console.error('Failed to fetch user role:', error);\n    } finally {\n      setIsLoading(false);\n    }\n  }, [userAddress, getUserRole]);\n\n  const hasPermission = useCallback((permission: keyof typeof ROLE_PERMISSIONS[UserRole]) => {\n    if (!user) return false;\n    return ROLE_PERMISSIONS[user.role][permission] || false;\n  }, [user]);\n\n  const isEmployee = useCallback(() => {\n    return user?.role === UserRole.EMPLOYEE;\n  }, [user]);\n\n  const isEmployer = useCallback(() => {\n    return user?.role === UserRole.EMPLOYER;\n  }, [user]);\n\n  const isAdmin = useCallback(() => {\n    return user?.role === UserRole.ADMIN;\n  }, [user]);\n\n  const isAuditor = useCallback(() => {\n    return user?.role === UserRole.AUDITOR;\n  }, [user]);\n\n  const canViewOwnSalary = useCallback(() => {\n    return hasPermission('canViewOwnSalary');\n  }, [hasPermission]);\n\n  const canViewOwnHistory = useCallback(() => {\n    return hasPermission('canViewOwnHistory');\n  }, [hasPermission]);\n\n  const canViewCompanyData = useCallback(() => {\n    return hasPermission('canViewCompanyData');\n  }, [hasPermission]);\n\n  const canManageEmployees = useCallback(() => {\n    return hasPermission('canManageEmployees');\n  }, [hasPermission]);\n\n  const canProcessPayroll = useCallback(() => {\n    return hasPermission('canProcessPayroll');\n  }, [hasPermission]);\n\n  const canGenerateReports = useCallback(() => {\n    return hasPermission('canGenerateReports');\n  }, [hasPermission]);\n\n  const getRoleDisplayName = useCallback((role?: UserRole) => {\n    const roleToDisplay = role || user?.role;\n    switch (roleToDisplay) {\n      case UserRole.EMPLOYEE:\n        return 'Employee';\n      case UserRole.EMPLOYER:\n        return 'Employer';\n      case UserRole.ADMIN:\n        return 'Administrator';\n      case UserRole.AUDITOR:\n        return 'Auditor';\n      default:\n        return 'Unknown';\n    }\n  }, [user]);\n\n  const getRoleColor = useCallback((role?: UserRole) => {\n    const roleToColor = role || user?.role;\n    switch (roleToColor) {\n      case UserRole.EMPLOYEE:\n        return 'primary';\n      case UserRole.EMPLOYER:\n        return 'secondary';\n      case UserRole.ADMIN:\n        return 'error';\n      case UserRole.AUDITOR:\n        return 'info';\n      default:\n        return 'default';\n    }\n  }, [user]);\n\n  const getAvailableRoles = useCallback((): UserRole[] => {\n    if (!user) return [];\n\n    // Admin can assign any role\n    if (user.role === UserRole.ADMIN) {\n      return Object.values(UserRole);\n    }\n\n    // Employer can assign employee and employer roles\n    if (user.role === UserRole.EMPLOYER) {\n      return [UserRole.EMPLOYEE, UserRole.EMPLOYER];\n    }\n\n    // Others cannot assign roles\n    return [];\n  }, [user]);\n\n  const getAccessibleRoutes = useCallback(() => {\n    if (!user) return [];\n\n    const routes = ['/dashboard'];\n\n    switch (user.role) {\n      case UserRole.EMPLOYEE:\n        routes.push('/dashboard/employee');\n        break;\n      case UserRole.EMPLOYER:\n        routes.push('/dashboard/employer', '/dashboard/employee');\n        break;\n      case UserRole.ADMIN:\n        routes.push(\n          '/dashboard/admin',\n          '/dashboard/employer',\n          '/dashboard/employee'\n        );\n        break;\n      case UserRole.AUDITOR:\n        routes.push('/dashboard/auditor');\n        break;\n    }\n\n    return routes;\n  }, [user]);\n\n  const getDefaultRoute = useCallback(() => {\n    if (!user) return '/login';\n\n    switch (user.role) {\n      case UserRole.EMPLOYEE:\n        return '/dashboard/employee';\n      case UserRole.EMPLOYER:\n        return '/dashboard/employer';\n      case UserRole.ADMIN:\n        return '/dashboard/admin';\n      case UserRole.AUDITOR:\n        return '/dashboard/auditor';\n      default:\n        return '/dashboard';\n    }\n  }, [user]);\n\n  const refreshRole = useCallback(() => {\n    fetchUserRole();\n  }, [fetchUserRole]);\n\n  return {\n    user,\n    isLoading,\n    error,\n    // Role checks\n    hasPermission,\n    isEmployee,\n    isEmployer,\n    isAdmin,\n    isAuditor,\n    // Permission checks\n    canViewOwnSalary,\n    canViewOwnHistory,\n    canViewCompanyData,\n    canManageEmployees,\n    canProcessPayroll,\n    canGenerateReports,\n    // Utility functions\n    getRoleDisplayName,\n    getRoleColor,\n    getAvailableRoles,\n    getAccessibleRoutes,\n    getDefaultRoute,\n    refreshRole,\n  };\n};"
+import { useState, useEffect, useCallback } from 'react';
+import { UserRole } from '../types';
+import type { User } from '../types';
+import { ROLE_PERMISSIONS } from '../utils/constants';
+import { usePayrollContract } from './usePayrollContract';
+import { ethers } from 'ethers';
+
+export const useRole = (provider?: ethers.Provider, userAddress?: string) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { getUserRole } = usePayrollContract(provider);
+
+  useEffect(() => {
+    if (userAddress) {
+      fetchUserRole();
+    } else {
+      setUser(null);
+    }
+  }, [userAddress]);
+
+  const fetchUserRole = useCallback(async () => {
+    if (!userAddress) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const role = await getUserRole(userAddress);
+      if (role) {
+        setUser({
+          address: userAddress,
+          role,
+          // Additional user data would be fetched from contract or database
+        });
+      } else {
+        // Default to employee role if not set
+        setUser({
+          address: userAddress,
+          role: UserRole.EMPLOYEE,
+        });
+      }
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to fetch user role';
+      setError(errorMessage);
+      console.error('Failed to fetch user role:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userAddress, getUserRole]);
+
+  const hasPermission = useCallback((permission: keyof typeof ROLE_PERMISSIONS[UserRole]) => {
+    if (!user) return false;
+    return ROLE_PERMISSIONS[user.role][permission] || false;
+  }, [user]);
+
+  const isEmployee = useCallback(() => {
+    return user?.role === UserRole.EMPLOYEE;
+  }, [user]);
+
+  const isEmployer = useCallback(() => {
+    return user?.role === UserRole.EMPLOYER;
+  }, [user]);
+
+  const isAdmin = useCallback(() => {
+    return user?.role === UserRole.ADMIN;
+  }, [user]);
+
+  const isAuditor = useCallback(() => {
+    return user?.role === UserRole.AUDITOR;
+  }, [user]);
+
+  const canViewOwnSalary = useCallback(() => {
+    return hasPermission('canViewOwnSalary');
+  }, [hasPermission]);
+
+  const canViewOwnHistory = useCallback(() => {
+    return hasPermission('canViewOwnHistory');
+  }, [hasPermission]);
+
+  const canViewCompanyData = useCallback(() => {
+    return hasPermission('canViewCompanyData');
+  }, [hasPermission]);
+
+  const canManageEmployees = useCallback(() => {
+    return hasPermission('canManageEmployees');
+  }, [hasPermission]);
+
+  const canProcessPayroll = useCallback(() => {
+    return hasPermission('canProcessPayroll');
+  }, [hasPermission]);
+
+  const canGenerateReports = useCallback(() => {
+    return hasPermission('canGenerateReports');
+  }, [hasPermission]);
+
+  const getRoleDisplayName = useCallback((role?: UserRole) => {
+    const roleToDisplay = role || user?.role;
+    switch (roleToDisplay) {
+      case UserRole.EMPLOYEE:
+        return 'Employee';
+      case UserRole.EMPLOYER:
+        return 'Employer';
+      case UserRole.ADMIN:
+        return 'Administrator';
+      case UserRole.AUDITOR:
+        return 'Auditor';
+      default:
+        return 'Unknown';
+    }
+  }, [user]);
+
+  const getRoleColor = useCallback((role?: UserRole) => {
+    const roleToColor = role || user?.role;
+    switch (roleToColor) {
+      case UserRole.EMPLOYEE:
+        return 'primary';
+      case UserRole.EMPLOYER:
+        return 'secondary';
+      case UserRole.ADMIN:
+        return 'error';
+      case UserRole.AUDITOR:
+        return 'info';
+      default:
+        return 'default';
+    }
+  }, [user]);
+
+  const getAvailableRoles = useCallback((): UserRole[] => {
+    if (!user) return [];
+
+    // Admin can assign any role
+    if (user.role === UserRole.ADMIN) {
+      return Object.values(UserRole);
+    }
+
+    // Employer can assign employee and employer roles
+    if (user.role === UserRole.EMPLOYER) {
+      return [UserRole.EMPLOYEE, UserRole.EMPLOYER];
+    }
+
+    // Others cannot assign roles
+    return [];
+  }, [user]);
+
+  const getAccessibleRoutes = useCallback(() => {
+    if (!user) return [];
+
+    const routes = ['/dashboard'];
+
+    switch (user.role) {
+      case UserRole.EMPLOYEE:
+        routes.push('/dashboard/employee');
+        break;
+      case UserRole.EMPLOYER:
+        routes.push('/dashboard/employer', '/dashboard/employee');
+        break;
+      case UserRole.ADMIN:
+        routes.push(
+          '/dashboard/admin',
+          '/dashboard/employer',
+          '/dashboard/employee'
+        );
+        break;
+      case UserRole.AUDITOR:
+        routes.push('/dashboard/auditor');
+        break;
+    }
+
+    return routes;
+  }, [user]);
+
+  const getDefaultRoute = useCallback(() => {
+    if (!user) return '/login';
+
+    switch (user.role) {
+      case UserRole.EMPLOYEE:
+        return '/dashboard/employee';
+      case UserRole.EMPLOYER:
+        return '/dashboard/employer';
+      case UserRole.ADMIN:
+        return '/dashboard/admin';
+      case UserRole.AUDITOR:
+        return '/dashboard/auditor';
+      default:
+        return '/dashboard';
+    }
+  }, [user]);
+
+  const refreshRole = useCallback(() => {
+    fetchUserRole();
+  }, [fetchUserRole]);
+
+  return {
+    user,
+    isLoading,
+    error,
+    // Role checks
+    hasPermission,
+    isEmployee,
+    isEmployer,
+    isAdmin,
+    isAuditor,
+    // Permission checks
+    canViewOwnSalary,
+    canViewOwnHistory,
+    canViewCompanyData,
+    canManageEmployees,
+    canProcessPayroll,
+    canGenerateReports,
+    // Utility functions
+    getRoleDisplayName,
+    getRoleColor,
+    getAvailableRoles,
+    getAccessibleRoutes,
+    getDefaultRoute,
+    refreshRole,
+  };
+};
